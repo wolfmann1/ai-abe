@@ -69,6 +69,22 @@ class ProviderRequestTests(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["json"]["system"], "sys")
         self.assertEqual((completion.text, completion.input_tokens), ("Hello", 50))
 
+    @mock.patch.dict(os.environ, {"OPENROUTER_API_KEY": "or-key"})
+    @mock.patch("abe.providers.requests.post")
+    def test_openrouter_from_form(self, post):
+        from abe.web import blueprint_from_form
+
+        post.return_value = fake_response(payload=OPENAI_SHAPE)
+        blueprint = blueprint_from_form({"name": "X", "provider": "openrouter", "model": "openai/gpt-5.2"})
+        config = blueprint.spec.provider
+        self.assertEqual((config.endpoint, config.api_key_env), ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"))
+        OpenAICompatibleProvider(config).complete("sys", "user")
+        self.assertEqual(post.call_args.args[0], "https://openrouter.ai/api/v1/chat/completions")
+        headers = post.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer or-key")
+        self.assertEqual(headers["X-OpenRouter-Title"], "ai-abe")
+        self.assertIn("HTTP-Referer", headers)
+
     def test_missing_key_is_a_clear_error(self):
         provider = AzureOpenAIProvider(ProviderConfig(
             kind="azure_openai", model="m", endpoint="https://e", api_key_env="DEFINITELY_NOT_SET_123"))

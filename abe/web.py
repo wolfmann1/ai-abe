@@ -26,7 +26,7 @@ from .cost import CostInputs
 from .evals import TestSet, run_eval, write_report
 from .ingest import SUPPORTED_SUFFIXES
 from .intake import CRITERIA, Criterion, Intake
-from .providers import OLLAMA_DEFAULT_URL, ProviderError
+from .providers import OLLAMA_DEFAULT_URL, OPENROUTER_HEADERS, OPENROUTER_URL, ProviderError
 from .spec import AgentSpec, ProviderConfig, slugify
 
 MAX_FILES = 50
@@ -36,6 +36,8 @@ SAMPLE_ROWS = 5
 PROVIDER_CHOICES = {
     "azure_openai": ("Azure OpenAI", "azure_openai", "", "AZURE_OPENAI_API_KEY"),
     "ollama": ("Local model (Ollama)", "openai_compatible", OLLAMA_DEFAULT_URL, ""),
+    "openrouter": ("OpenRouter (prepaid credits, many models)", "openai_compatible", OPENROUTER_URL,
+                   "OPENROUTER_API_KEY"),
     "openai": ("OpenAI", "openai_compatible", "https://api.openai.com/v1", "OPENAI_API_KEY"),
     "anthropic": ("Anthropic", "anthropic", "", "ANTHROPIC_API_KEY"),
     "extractive": ("No model: quote the best passages (offline baseline)", "extractive", "", ""),
@@ -208,6 +210,7 @@ def blueprint_from_form(data) -> Blueprint:
         model=text("model"),
         endpoint=text("endpoint") or default_endpoint,
         api_key_env=text("api_key_env") or default_key_env,
+        extra_headers=dict(OPENROUTER_HEADERS) if choice == "openrouter" else {},
     )
 
     spec = AgentSpec(

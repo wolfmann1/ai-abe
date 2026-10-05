@@ -24,13 +24,13 @@ flowchart LR
 | `spec.py` | `AgentSpec`: name, purpose, rules, provider and retrieval settings. Generates the system prompt. |
 | `ingest.py` | Reads PDF, DOCX, TXT and Markdown; splits text into overlapping chunks on paragraph and sentence boundaries. |
 | `index.py` | BM25 keyword index, stored as JSON. |
-| `providers.py` | Azure OpenAI, OpenAI-compatible (OpenAI, Ollama, LM Studio, vLLM), Anthropic, and the no-model extractive baseline. Plain HTTPS via `requests`. |
+| `providers.py` | Azure OpenAI, OpenAI-compatible (OpenRouter, OpenAI, Ollama, LM Studio, vLLM), Anthropic, and the no-model extractive baseline. Plain HTTPS via `requests`. |
 | `agent.py` | Retrieves passages, declines below the score floor, numbers the passages, calls the provider, maps citations back to sources, records token usage. |
 | `evals.py` | Runs a YAML test set; scores answers and retrieval separately; writes Markdown and JSON reports; returns a pass/fail for CI. |
 | `intake.py` | Six-criterion screen and a build recommendation. |
 | `cost.py` | Monthly token volume and cost from usage assumptions and the rates you enter. |
 | `builder.py` | Writes the agent package from a blueprint and documents. |
-| `mcp_server.py` | Exposes `search_knowledge`, `ask` and `list_sources` to MCP clients. |
+| `mcp_server.py` | Exposes `search_knowledge`, `ask`, `list_sources` and the `agent_rules` prompt to MCP clients; `--retrieval-only` leaves out `ask`. |
 | `web.py` | Starlette app: intake form, workbench, evaluation, download. |
 | `cli.py` | `serve`, `build`, `reindex`, `ask`, `eval`, `mcp`. |
 

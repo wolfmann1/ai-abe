@@ -5,7 +5,7 @@
     abe reindex AGENT
     abe ask AGENT "question"
     abe eval AGENT [--provider extractive] [--testset PATH]
-    abe mcp AGENT [--transport stdio|streamable-http]
+    abe mcp AGENT [--transport stdio|streamable-http] [--retrieval-only]
 
 AGENT is a path to an agent package, or the name of one inside --workspace (default ./agents).
 """
@@ -121,7 +121,7 @@ def cmd_mcp(args) -> int:
         from .mcp_server import run
     except ImportError:
         raise SystemExit("The MCP server needs the mcp package: pip install 'ai-abe[mcp]'") from None
-    run(resolve_agent(args.agent, args.workspace), transport=args.transport)
+    run(resolve_agent(args.agent, args.workspace), transport=args.transport, retrieval_only=args.retrieval_only)
     return 0
 
 
@@ -162,6 +162,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("mcp", help="serve an agent over MCP")
     p.add_argument("agent")
     p.add_argument("--transport", default="stdio", choices=["stdio", "sse", "streamable-http"])
+    p.add_argument(
+        "--retrieval-only",
+        action="store_true",
+        help="expose search and rules only, so the client's own model and subscription do the answering",
+    )
     p.set_defaults(func=cmd_mcp)
     return parser
 

@@ -30,6 +30,10 @@ class ProviderConfig(BaseModel):
     api_key_env: str = ""
     temperature: float = 0.0
     max_tokens: int = 800
+    extra_headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Additional HTTP headers sent with every request, e.g. OpenRouter's app attribution headers.",
+    )
 
 
 class RetrievalConfig(BaseModel):

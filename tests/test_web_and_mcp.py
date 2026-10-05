@@ -95,6 +95,26 @@ class MCPTests(unittest.TestCase):
             self.assertEqual(sorted(names), ["ask", "list_sources", "search_knowledge"])
             self.assertIn("faq.txt", sources)
 
+    def test_retrieval_only_and_rules_prompt(self):
+        try:
+            from abe.mcp_server import create_server
+        except ImportError:
+            self.skipTest("mcp not installed")
+        with TempDir() as tmp:
+            server = create_server(build_example(tmp), retrieval_only=True)
+
+            async def run():
+                names = [t.name for t in await server.list_tools()]
+                prompts = [p.name for p in await server.list_prompts()]
+                rules = await server.get_prompt("agent_rules", {})
+                return names, prompts, str(rules)
+
+            names, prompts, rules = asyncio.run(run())
+            self.assertEqual(sorted(names), ["list_sources", "search_knowledge"])
+            self.assertEqual(prompts, ["agent_rules"])
+            self.assertIn("Stash Ops Assistant", rules)
+            self.assertIn("search_knowledge", rules)
+
 
 if __name__ == "__main__":
     unittest.main()

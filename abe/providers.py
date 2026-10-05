@@ -5,7 +5,7 @@ Each provider turns (system prompt, user message) into a Completion. They use
 and makes the request each provider sends easy to read and test.
 
 - azure_openai       Azure OpenAI chat completions (deployment name goes in `model`)
-- openai_compatible  OpenAI's API, or anything that speaks it: Ollama, LM Studio, vLLM
+- openai_compatible  OpenAI's API, or anything that speaks it: OpenRouter, Ollama, LM Studio, vLLM
 - anthropic          Anthropic Messages API
 - extractive         No model. Returns the best-matching passages verbatim. Useful as an
                      offline baseline, for CI, and for showing whether an LLM adds value.
@@ -24,6 +24,8 @@ from .spec import ProviderConfig
 TIMEOUT_SECONDS = 60
 ANTHROPIC_VERSION = "2023-06-01"
 OLLAMA_DEFAULT_URL = "http://localhost:11434/v1"
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_HEADERS = {"HTTP-Referer": "https://github.com/wolfmann1/ai-abe", "X-OpenRouter-Title": "ai-abe"}
 
 
 @dataclass
@@ -96,7 +98,7 @@ class OpenAICompatibleProvider(Provider):
         if not self.config.model:
             raise ProviderError("provider.model is required (e.g. a model name pulled into Ollama).")
         base = (self.config.endpoint or OLLAMA_DEFAULT_URL).rstrip("/")
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", **self.config.extra_headers}
         key = self._key(required=False)
         if key:
             headers["Authorization"] = f"Bearer {key}"

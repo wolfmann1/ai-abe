@@ -121,13 +121,18 @@ def write_testset(blueprint: Blueprint, path: Path) -> None:
 
 
 def write_mcp_config(agent_dir: Path, slug: str) -> None:
+    python = sys.executable if sys.executable else "python"
+    path = str(agent_dir.resolve())
     config = {
         "mcpServers": {
-            f"abe-{slug}": {
-                "command": sys.executable if sys.executable else "python",
-                "args": ["-m", "abe", "mcp", str(agent_dir.resolve())],
-            }
-        }
+            # Uses the model configured in agent.yaml for the ask tool.
+            f"abe-{slug}": {"command": python, "args": ["-m", "abe", "mcp", path]},
+        },
+        # Alternative: retrieval only. The MCP client's own model answers, on the user's existing
+        # subscription (Claude Desktop, GitHub Copilot in VS Code). Use one entry or the other, not both.
+        "subscriptionAlternative": {
+            f"abe-{slug}": {"command": python, "args": ["-m", "abe", "mcp", path, "--retrieval-only"]},
+        },
     }
     (agent_dir / "mcp.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 

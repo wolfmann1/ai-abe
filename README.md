@@ -16,8 +16,8 @@ without touching the others.
 | Intake form | Walks through the problem, a six-criterion build/no-build screen, documents, rules, model choice, test questions and running cost. |
 | Retrieval | Reads PDF, DOCX, TXT and Markdown; chunks on paragraph and sentence boundaries; indexes with BM25. Works offline. |
 | Agent | Answers only from retrieved passages, cites them, and declines when nothing relevant is found. |
-| Providers | Azure OpenAI (default), OpenAI, any OpenAI-compatible server including Ollama for local models, Anthropic, and a no-model extractive baseline. |
-| MCP server | Exposes `search_knowledge`, `ask` and `list_sources` to Claude Desktop, VS Code or any MCP client. |
+| Providers | Azure OpenAI (default), OpenRouter, OpenAI, any OpenAI-compatible server including Ollama for local models, Anthropic, and a no-model extractive baseline. |
+| MCP server | Exposes `search_knowledge`, `ask`, `list_sources` and the agent's rules to Claude Desktop, VS Code or any MCP client. A retrieval-only mode lets the client's own model answer on an existing subscription. |
 | Evaluation | Runs a YAML test set, scores answers and retrieval separately, writes Markdown and JSON reports, and fails CI below a threshold. |
 | Intake screen | Data readiness, technical feasibility, business readiness, minimum viable accuracy, output verifiability, build versus buy. |
 | Cost model | Monthly token volume from usage assumptions and retrieval settings; monthly cost from the rates you enter. |
@@ -50,6 +50,21 @@ $env:AZURE_OPENAI_API_KEY = "..."      # PowerShell
 export AZURE_OPENAI_API_KEY=...        # bash / zsh
 ```
 
+## Paying for the model
+
+| Option | Billed to |
+|---|---|
+| An existing Claude Pro/Max or GitHub Copilot plan, through MCP | Your subscription; no key in ABE |
+| Azure OpenAI | Your Azure subscription |
+| OpenRouter | Prepaid OpenRouter credits, one balance across many models |
+| OpenAI or Anthropic API | Pay-as-you-go API account |
+| Ollama | Nothing; runs locally |
+
+To use OpenRouter credits, create a key at openrouter.ai, set it as `OPENROUTER_API_KEY`, choose **OpenRouter** in
+the form and enter a model ID such as `openai/gpt-5.2`. Chat subscriptions can't be called as an API, so ABE plugs
+into the app instead, as a retrieval-only MCP server. [docs/models-and-billing.md](docs/models-and-billing.md) has
+step-by-step instructions for each option and the trade-offs of the subscription route.
+
 ## The example
 
 `examples/ops-diagnostics` is an on-call assistant for a fictional artifact cache service called Stash: three
@@ -74,7 +89,7 @@ abe build BLUEPRINT --docs DIR
 abe reindex AGENT
 abe ask AGENT "question" [--provider KIND]
 abe eval AGENT [--provider KIND] [--threshold 0.8] [--min-retrieval 1.0] [--json]
-abe mcp AGENT [--transport stdio|streamable-http]
+abe mcp AGENT [--transport stdio|streamable-http] [--retrieval-only]
 ```
 
 `AGENT` is a path to an agent package or its name inside the workspace (`--workspace`, default `./agents`).
@@ -112,7 +127,9 @@ Each package's `mcp.json` holds an entry like this, with the full path filled in
 ```
 
 Paste it into Claude Desktop's `claude_desktop_config.json` or VS Code's MCP settings. `search_knowledge` returns
-passages for the client's own model to reason over; `ask` returns the agent's own cited answer.
+passages for the client's own model to reason over; `ask` returns the agent's own cited answer. `mcp.json` also
+holds a `subscriptionAlternative` entry that adds `--retrieval-only`: it drops `ask`, so the client's model answers
+from the passages under the `agent_rules` prompt and no API key is needed.
 
 ## Writing a good test set
 
@@ -124,7 +141,8 @@ model when retrieval hits and the answer is still wrong.
 
 ## Design
 
-See [docs/architecture.md](docs/architecture.md) for the module map, the design decisions and how to extend it.
+See [docs/architecture.md](docs/architecture.md) for the module map, the design decisions and how to extend it, and
+[docs/models-and-billing.md](docs/models-and-billing.md) for model and billing options.
 
 ## Development
 
