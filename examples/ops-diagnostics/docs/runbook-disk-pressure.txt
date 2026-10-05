@@ -1,0 +1,18 @@
+Runbook: Artifact cache disk pressure
+
+Applies to: the build artifact cache service (fictional example service "Stash").
+
+Symptoms
+Builds slow down or fail with "No space left on device" while uploading artifacts. The cache volume alert fires at 80% used and pages on-call at 90% used.
+
+First checks
+Confirm the alert with: df -h /srv/stash. If usage is above 90%, treat it as urgent: at 95% the service stops accepting uploads and builds start failing across every team.
+Check whether a single project is responsible: stash-admin usage --top 10. One project holding more than 30% of the volume usually means a retention policy was disabled or a pipeline is uploading debug symbols on every commit.
+
+Fix
+Run a purge of artifacts older than the retention window: stash-admin purge --older-than 14d --dry-run, review the list, then run it again without --dry-run. A purge normally frees 20 to 40 percent of the volume.
+If the purge does not bring usage below 80%, expand the volume by 500 GB through the storage request form and record the change in the change log.
+Never delete files directly from /srv/stash with rm. The cache index will still reference them and builds will fail with checksum errors until the index is rebuilt.
+
+After the fix
+Post a short note in the build-infrastructure channel with the before and after usage. If one project caused the growth, open a ticket with that team to restore their retention policy.

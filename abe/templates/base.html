@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}ai-abe{% endblock %}</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1f21; --muted: #5d6166; --line: #dcdcd7;
+    --accent: #1f5f8b; --accent-ink: #ffffff; --ok: #2d6a3e; --warn: #8a5a00; --bad: #9b2c2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151719; --panel: #1e2124; --ink: #e8e8e4; --muted: #a2a6ab; --line: #34383c;
+      --accent: #6aa9d6; --accent-ink: #0f1214; --ok: #7cc48f; --warn: #e0b45c; --bad: #e88b8b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { border-bottom: 1px solid var(--line); background: var(--panel); }
+  header .wrap { display: flex; align-items: baseline; gap: 12px; }
+  header a { color: var(--ink); text-decoration: none; font-weight: 700; font-size: 1.15rem; }
+  header span { color: var(--muted); font-size: .9rem; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 8px 0 4px; }
+  h2 { font-size: 1.15rem; margin: 0 0 8px; }
+  p.lead { color: var(--muted); margin-top: 0; }
+  fieldset, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+                    padding: 16px; margin: 0 0 16px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  legend .step { display: inline-block; min-width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center;
+                 border-radius: 50%; background: var(--accent); color: var(--accent-ink); margin-right: 6px;
+                 font-size: .85rem; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  .hint { color: var(--muted); font-weight: 400; font-size: .88rem; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--ink); font: inherit; }
+  textarea { min-height: 72px; resize: vertical; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .check { display: flex; gap: 8px; align-items: center; font-weight: 400; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .crit td:first-child { width: 34%; }
+  .crit select { width: 80px; }
+  button, .button { display: inline-block; background: var(--accent); color: var(--accent-ink); border: 0;
+                    border-radius: 6px; padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer;
+                    text-decoration: none; }
+  .button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .verdict { font-weight: 700; }
+  .verdict.Proceed { color: var(--ok); } .verdict.Do { color: var(--bad); } .verdict.Time-boxed { color: var(--warn); }
+  .answer { white-space: pre-wrap; background: var(--bg); border-left: 3px solid var(--accent);
+            padding: 10px 12px; border-radius: 4px; }
+  .pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+  pre { white-space: pre-wrap; background: var(--bg); padding: 10px; border-radius: 6px; font-size: .85rem;
+        overflow-x: auto; }
+  code { font-size: .9em; }
+  .error { border-color: var(--bad); }
+  details summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="/">ai-abe</a><span>Agent Builder Engine</span></div></header>
+<main class="wrap">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

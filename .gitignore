@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Agent packages built locally (they contain copies of your documents)
+agents/
+build-output/
+*.zip

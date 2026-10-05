@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Error · ai-abe{% endblock %}
+{% block content %}
+<div class="card error">
+  <h2>That didn't work</h2>
+  <p>{{ message }}</p>
+  <a class="button secondary" href="javascript:history.back()">Back to the form</a>
+</div>
+{% endblock %}

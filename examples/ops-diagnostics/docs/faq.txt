@@ -1,0 +1,13 @@
+Stash service FAQ (fictional example service)
+
+Who owns Stash?
+The build infrastructure team owns Stash. Requests go through the build-infrastructure queue in the ticket system. Urgent issues outside working hours go to the on-call engineer through the paging system.
+
+What is the retention window?
+Artifacts are kept for 14 days by default. Release builds are kept for 365 days. Projects can request a longer window through the build-infrastructure queue, with a cost estimate attached.
+
+How do I get access to stash-admin?
+Access to stash-admin requires membership in the stash-operators group. Request it through the access portal; your manager approves it, and the build infrastructure team grants it within one working day.
+
+Is there a maintenance window?
+Planned maintenance happens on Sundays between 02:00 and 06:00 Pacific time. Builds that run during the window may be retried automatically.

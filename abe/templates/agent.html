@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ spec.name }} · ai-abe{% endblock %}
+{% block content %}
+<h1>{{ spec.name }}</h1>
+<p class="lead">{{ spec.description }}</p>
+
+<div class="card">
+  <h2>Intake</h2>
+  <p><span class="verdict {{ verdict.split(' ')[0] }}">{{ verdict }}.</span> {{ verdict_reason }}</p>
+  <p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}</p>
+</div>
+
+<div class="card">
+  <h2>Ask</h2>
+  <form method="post" action="/agents/{{ spec.slug }}/ask">
+    <input type="text" name="question" value="{{ question or '' }}" placeholder="Ask a question the documents should answer">
+    <div class="actions" style="margin-top:10px"><button type="submit">Ask</button></div>
+  </form>
+  {% if answer %}
+    <p></p>
+    <div class="answer">{{ answer.text }}</div>
+    {% if answer.sources %}<p class="hint">Sources: {{ answer.sources | join(', ') }}</p>{% endif %}
+    {% if answer.input_tokens %}<p class="hint">Tokens: {{ answer.input_tokens }} in, {{ answer.output_tokens }} out</p>{% endif %}
+    <details><summary>Retrieved passages</summary>
+      {% for r in answer.retrieved %}<p><strong>{{ r.id }}</strong> (score {{ r.score }})</p><pre>{{ r.text }}</pre>{% endfor %}
+    </details>
+  {% endif %}
+</div>
+
+{% if error %}<div class="card error"><strong>Provider error.</strong> {{ error }}</div>{% endif %}
+
+<div class="card">
+  <h2>Evaluate</h2>
+  <form method="post" action="/agents/{{ spec.slug }}/eval">
+    <div class="actions"><button type="submit">Run test set</button></div>
+  </form>
+  {% if report %}
+    <p>Accuracy <strong>{{ '%.0f' % (report.accuracy * 100) }}%</strong>
+       against a threshold of {{ '%.0f' % (report.threshold * 100) }}%:
+       <span class="{{ 'pass' if report.passed else 'fail' }}">{{ 'PASS' if report.passed else 'FAIL' }}</span>.
+       {% if report.retrieval_hit_rate is not none %}Retrieval hit rate {{ '%.0f' % (report.retrieval_hit_rate * 100) }}%.{% endif %}</p>
+    <table>
+      <tr><th>Case</th><th>Result</th><th>Notes</th></tr>
+      {% for r in report.results %}
+      <tr><td>{{ r.id }}</td><td class="{{ 'pass' if r.passed else 'fail' }}">{{ 'pass' if r.passed else 'fail' }}</td>
+          <td>{{ r.reasons | join('; ') or '—' }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="hint">Written to evals/report.md and evals/report.json.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Package</h2>
+  <ul>{% for f in files %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
+  <div class="actions"><a class="button" href="/agents/{{ spec.slug }}/download">Download zip</a>
+  <a class="button secondary" href="/">Build another</a></div>
+  <details style="margin-top:12px"><summary>System prompt</summary><pre>{{ system_prompt }}</pre></details>
+  <details><summary>Cost model</summary><pre>{{ cost_md }}</pre></details>
+</div>
+{% endblock %}

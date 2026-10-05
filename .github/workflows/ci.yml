@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[mcp,dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: Build the example agent
+        run: abe --workspace build-output build examples/ops-diagnostics/blueprint.yaml --docs examples/ops-diagnostics/docs
+      # The extractive baseline needs no model, so it runs on every push. It guards the retrieval layer
+      # (every test question must retrieve its source document) and the baseline answer floor.
+      - name: Evaluate retrieval and the no-model baseline
+        run: abe --workspace build-output eval stash-ops-assistant --provider extractive --threshold 0.5 --min-retrieval 1.0
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.python-version == '3.12'
+        with:
+          name: example-agent
+          path: build-output/
+
+  # Full answer-accuracy evaluation against a real model. Runs only when the repository has the
+  # AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT secrets configured; skipped otherwise.
+  eval-llm:
+    runs-on: ubuntu-latest
+    needs: test
+    env:
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.AZURE_OPENAI_API_KEY != ''
+      - uses: actions/setup-python@v5
+        if: env.AZURE_OPENAI_API_KEY != ''
+        with:
+          python-version: "3.12"
+      - name: Build and evaluate with Azure OpenAI
+        if: env.AZURE_OPENAI_API_KEY != ''
+        run: |
+          pip install -e .
+          sed -i "s|https://your-resource.openai.azure.com|$AZURE_OPENAI_ENDPOINT|; s|model: gpt-4o-mini|model: $AZURE_OPENAI_DEPLOYMENT|" examples/ops-diagnostics/blueprint.yaml
+          abe --workspace build-output build examples/ops-diagnostics/blueprint.yaml --docs examples/ops-diagnostics/docs
+          abe --workspace build-output eval stash-ops-assistant
+      - name: Skipped
+        if: env.AZURE_OPENAI_API_KEY == ''
+        run: echo "No AZURE_OPENAI_API_KEY secret configured; model evaluation skipped."

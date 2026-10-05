@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-abe"
+version = "0.1.0"
+description = "Agent Builder Engine: turn a short intake form and a folder of documents into a tested, document-grounded AI agent with an MCP server."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Christian Lesemann" }]
+license = { text = "MIT" }
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+    "pypdf>=4",
+    "python-docx>=1.1",
+    "requests>=2.31",
+    "starlette>=0.37",
+    "uvicorn>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+dev = ["ruff>=0.5", "httpx>=0.27", "reportlab>=4"]
+
+[project.scripts]
+abe = "abe.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["abe*"]
+
+[tool.setuptools.package-data]
+abe = ["templates/*.html"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]

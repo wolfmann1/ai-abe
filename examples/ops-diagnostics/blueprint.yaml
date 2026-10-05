@@ -1,0 +1,50 @@
+# Example blueprint: what the web form produces, written by hand.
+# Build it with:  abe build examples/ops-diagnostics/blueprint.yaml --docs examples/ops-diagnostics/docs
+spec:
+  name: Stash Ops Assistant
+  description: Answers on-call questions about the Stash artifact cache from its runbooks and FAQ.
+  problem: >-
+    On-call engineers who don't work on Stash every day lose time finding the right runbook during an
+    incident, and some fixes (deleting files by hand) make the outage worse.
+  goal: >-
+    An engineer gets the correct first checks and fix, with the runbook cited, in under a minute.
+  audience: on-call engineers and first-line support analysts
+  out_of_scope:
+    - Approving access requests or changes
+    - Anything about individual employees
+  require_citations: true
+  human_review: false
+  provider:
+    kind: azure_openai
+    model: gpt-4o-mini
+    endpoint: https://your-resource.openai.azure.com
+    api_key_env: AZURE_OPENAI_API_KEY
+intake:
+  data_readiness: {score: 4, notes: Runbooks exist and are reviewed quarterly.}
+  technical_feasibility: {score: 4, notes: Questions are lookups against short procedural documents.}
+  business_readiness: {score: 3, notes: Build infrastructure lead sponsors it; on-call rota will pilot.}
+  minimum_accuracy: {score: 3, notes: A wrong first check costs minutes; a wrong fix could cost an outage.}
+  verifiability: {score: 5, notes: Every answer cites a runbook the engineer can open.}
+  build_vs_buy: {score: 3, notes: Wiki search exists but does not answer questions.}
+  value_statement: >-
+    Roughly 20 minutes saved per incident across about 30 incidents a month. Soft: the 20 minutes is
+    an estimate from two on-call engineers, not a measurement.
+cost:
+  users: 40
+  questions_per_user_per_day: 2
+sample_questions:
+  - question: The cache volume is at 92%. What should I do?
+    must_mention: [purge, dry-run]
+    source: runbook-disk-pressure.txt
+  - question: Can I delete old files from /srv/stash with rm?
+    must_mention: [rm, checksum]
+    source: runbook-disk-pressure.txt
+  - question: Every replica is lagging. Should I restart them?
+    must_mention: [escalate]
+    source: runbook-replica-lag.md
+  - question: How long are release builds kept?
+    must_mention: ["365 days"]
+    source: faq.txt
+  - question: When is the maintenance window?
+    must_mention: [Sunday]
+    source: faq.txt
