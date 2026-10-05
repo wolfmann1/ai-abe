@@ -1,8 +1,7 @@
 # ai-abe — Agent Builder Engine
 
 ABE builds a document-grounded AI agent from a short intake form and a folder of documents. You describe the
-problem, score whether it is worth building, upload PDF, Word or text files, and write a few questions you
-already know the answers to. ABE produces an agent package with a retrieval index, a generated system prompt,
+problem, upload PDF, Word or text files, and write a few questions you already know the answers to. ABE produces an agent package with a retrieval index, a generated system prompt,
 a starter test set, a cost model and an MCP server entry, then lets you ask it questions and evaluate it in
 the browser.
 
@@ -13,13 +12,13 @@ without touching the others.
 
 | Piece | What it does |
 |---|---|
-| Intake form | Walks through the problem, a six-criterion build/no-build screen, documents, rules, model choice, test questions and running cost. |
+| Intake form | Walks through the problem, documents, rules, model choice, test questions and running cost, with an optional build/no-build screen. |
 | Retrieval | Reads PDF, DOCX, TXT and Markdown; chunks on paragraph and sentence boundaries; indexes with BM25. Works offline. |
 | Agent | Answers only from retrieved passages, cites them, and declines when nothing relevant is found. |
 | Providers | Azure OpenAI (default), OpenRouter, OpenAI, any OpenAI-compatible server including Ollama for local models, Anthropic, and a no-model extractive baseline. |
 | MCP server | Exposes `search_knowledge`, `ask`, `list_sources` and the agent's rules to Claude Desktop, VS Code or any MCP client. A retrieval-only mode lets the client's own model answer on an existing subscription. |
 | Evaluation | Runs a YAML test set, scores answers and retrieval separately, writes Markdown and JSON reports, and fails CI below a threshold. |
-| Intake screen | Data readiness, technical feasibility, business readiness, minimum viable accuracy, output verifiability, build versus buy. |
+| Intake screen (optional) | For making the case to a sponsor: data readiness, technical feasibility, business readiness, minimum viable accuracy, output verifiability, build versus buy. Leave it blank to skip it. |
 | Cost model | Monthly token volume from usage assumptions and retrieval settings; monthly cost from the rates you enter. |
 | CI | GitHub Actions: lint, unit tests, example build, retrieval and baseline evaluation on every push; full model evaluation when secrets are configured. |
 
@@ -107,7 +106,7 @@ agents/<slug>/
   docs/               source documents
   index.json          retrieval index
   evals/testset.yaml  test cases; evals/report.md after a run
-  intake.md           build recommendation
+  intake.md           build recommendation, if the screen was filled in
   cost.md             cost model
   mcp.json            MCP client entry
   README.md           how to run this agent

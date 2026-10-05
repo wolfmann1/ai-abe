@@ -55,6 +55,19 @@ class WebTests(unittest.TestCase):
             archive = client.get("/agents/stash-helper/download")
             self.assertEqual(archive.headers["content-type"], "application/zip")
 
+    def test_build_without_intake(self):
+        with TempDir() as tmp:
+            client = self.client(tmp)
+            files = [("documents", (p.name, p.read_bytes(), "text/plain")) for p in (EXAMPLE / "docs").iterdir()]
+            form = {"name": "Quick Try", "provider": "extractive", **{f"{k}_score": "" for k in (
+                "data_readiness", "technical_feasibility", "business_readiness", "minimum_accuracy",
+                "verifiability", "build_vs_buy")}}
+            response = client.post("/build", data=form, files=files, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+            self.assertFalse((tmp / "quick-try" / "intake.md").exists())
+            page = client.get("/agents/quick-try")
+            self.assertNotIn("<h2>Intake</h2>", page.text)
+
     def test_rejects_bad_file_type_and_missing_name(self):
         with TempDir() as tmp:
             client = self.client(tmp)

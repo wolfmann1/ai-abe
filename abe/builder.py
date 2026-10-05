@@ -9,7 +9,7 @@ An agent package is a folder:
       docs/               copies of the source documents
       index.json          the retrieval index
       evals/testset.yaml  starter test set from the sample questions
-      intake.md           intake screen and recommendation
+      intake.md           intake screen and recommendation (only if the screen was filled in)
       cost.md             monthly cost model
       mcp.json            MCP client configuration snippet
       README.md           how to run this agent
@@ -44,7 +44,7 @@ class SampleQuestion(BaseModel):
 
 class Blueprint(BaseModel):
     spec: AgentSpec
-    intake: Intake = Field(default_factory=Intake)
+    intake: Intake | None = None
     cost: CostInputs | None = None
     sample_questions: list[SampleQuestion] = Field(default_factory=list)
 
@@ -78,7 +78,11 @@ def build_agent(blueprint: Blueprint, documents: list[Path], workspace: str | Pa
 
     index = build_index(agent_dir)
     write_testset(blueprint, agent_dir / "evals" / "testset.yaml")
-    (agent_dir / "intake.md").write_text(blueprint.intake.to_markdown(spec.name), encoding="utf-8")
+    intake_md = agent_dir / "intake.md"
+    if blueprint.intake and not blueprint.intake.is_empty():
+        intake_md.write_text(blueprint.intake.to_markdown(spec.name), encoding="utf-8")
+    elif intake_md.exists():
+        intake_md.unlink()
     cost = blueprint.cost or CostInputs.estimate_for(spec)
     (agent_dir / "cost.md").write_text(cost.to_markdown(spec.name), encoding="utf-8")
     write_mcp_config(agent_dir, spec.slug)

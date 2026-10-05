@@ -196,7 +196,8 @@ def create_app(workspace: str | Path) -> Starlette:
 def _agent_context(agent_dir: Path) -> dict:
     spec = AgentSpec.load(agent_dir / "agent.yaml")
     blueprint = Blueprint.load(agent_dir / "blueprint.yaml")
-    verdict, reason = blueprint.intake.recommendation()
+    intake = blueprint.intake if blueprint.intake and not blueprint.intake.is_empty() else None
+    verdict, reason = intake.recommendation() if intake else (None, None)
     files = sorted(
         str(p.relative_to(agent_dir)).replace("\\", "/") for p in agent_dir.rglob("*") if p.is_file()
     )
@@ -276,13 +277,16 @@ def blueprint_from_form(data) -> Blueprint:
         provider=provider,
     )
 
+    def score(key: str) -> int | None:
+        raw = text(key)
+        return int(number(key, 0)) if raw else None
+
     intake = Intake(
         value_statement=text("value_statement"),
-        **{
-            key: Criterion(score=int(number(f"{key}_score", 3)), notes=text(f"{key}_notes"))
-            for key in CRITERIA
-        },
+        **{key: Criterion(score=score(f"{key}_score"), notes=text(f"{key}_notes")) for key in CRITERIA},
     )
+    if intake.is_empty():
+        intake = None
 
     cost = CostInputs.estimate_for(
         spec,

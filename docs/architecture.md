@@ -27,7 +27,7 @@ flowchart LR
 | `providers.py` | Azure OpenAI, OpenAI-compatible (OpenRouter, OpenAI, Ollama, LM Studio, vLLM), Anthropic, and the no-model extractive baseline. Plain HTTPS via `requests`. |
 | `agent.py` | Retrieves passages, declines below the score floor, numbers the passages, calls the provider, maps citations back to sources, records token usage. |
 | `evals.py` | Runs a YAML test set; scores answers and retrieval separately; writes Markdown and JSON reports; returns a pass/fail for CI. |
-| `intake.py` | Six-criterion screen and a build recommendation. |
+| `intake.py` | Optional six-criterion screen and a build recommendation; unscored criteria are ignored. |
 | `cost.py` | Monthly token volume and cost from usage assumptions and the rates you enter. |
 | `builder.py` | Writes the agent package from a blueprint and documents. |
 | `mcp_server.py` | Exposes `search_knowledge`, `ask`, `list_sources` and the `agent_rules` prompt to MCP clients; `--retrieval-only` leaves out `ask`. |

@@ -9,7 +9,7 @@ from abe.intake import Criterion, Intake
 from abe.providers import ExtractiveProvider
 from abe.spec import AgentSpec, ProviderConfig, slugify
 
-from .helpers import TempDir, build_example
+from .helpers import EXAMPLE, TempDir, build_example
 
 
 class IngestTests(unittest.TestCase):
@@ -169,7 +169,11 @@ class EvalTests(unittest.TestCase):
 
 class IntakeAndCostTests(unittest.TestCase):
     def test_recommendations(self):
-        self.assertEqual(Intake().recommendation()[0], "Time-boxed prototype")
+        self.assertTrue(Intake().is_empty())
+        self.assertEqual(Intake().recommendation()[0], "Not assessed")
+        partial = Intake(data_readiness=Criterion(score=4), verifiability=Criterion(score=5))
+        self.assertEqual(partial.recommendation()[0], "Proceed")
+        self.assertIn("not scored", partial.to_markdown("X"))
         strong = Intake(**{k: Criterion(score=4) for k in ("data_readiness", "technical_feasibility",
                                                              "business_readiness", "minimum_accuracy",
                                                              "verifiability", "build_vs_buy")})
@@ -201,6 +205,16 @@ class BuilderTests(unittest.TestCase):
                 self.assertTrue((agent_dir / name).exists(), name)
             self.assertEqual(len(list((agent_dir / "docs").iterdir())), 3)
             self.assertIn("Proceed", (agent_dir / "intake.md").read_text())
+
+    def test_intake_is_optional(self):
+        from abe.builder import Blueprint, build_agent
+
+        with TempDir() as tmp:
+            blueprint = Blueprint.load(EXAMPLE / "blueprint.yaml")
+            blueprint.intake = None
+            agent_dir = build_agent(blueprint, sorted((EXAMPLE / "docs").iterdir()), tmp)
+            self.assertFalse((agent_dir / "intake.md").exists())
+            self.assertTrue((agent_dir / "index.json").exists())
 
     def test_zip(self):
         import zipfile

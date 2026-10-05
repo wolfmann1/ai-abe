@@ -11,3 +11,6 @@ venv/
 agents/
 build-output/
 *.zip
+
+# Local test corpora (third-party documents, not redistributed)
+test-docs/

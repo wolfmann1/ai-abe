@@ -3,12 +3,14 @@
 {% block content %}
 <h1>{{ spec.name }}</h1>
 <p class="lead">{{ spec.description }}</p>
+<p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}</p>
 
+{% if verdict %}
 <div class="card">
   <h2>Intake</h2>
   <p><span class="verdict {{ verdict.split(' ')[0] }}">{{ verdict }}.</span> {{ verdict_reason }}</p>
-  <p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}</p>
 </div>
+{% endif %}
 
 {% if ollama %}
 <div class="card">

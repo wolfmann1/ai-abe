@@ -30,14 +30,17 @@ a retrieval index, an MCP server entry and a starter test set.</p>
 </fieldset>
 
 <fieldset>
-  <legend><span class="step">2</span>Is it worth building?</legend>
-  <p class="hint">Score each 1 (blocking) to 5 (strong). Any 1 stops the build recommendation; any 2 limits it to
-  a time-boxed prototype. Be honest: this page is for the sponsor as much as the builder.</p>
+  <legend><span class="step">2</span>Is it worth building? <span class="hint">Optional</span></legend>
+  <p><strong>Leave this section blank if you're trying ABE out.</strong> The agent builds and works the same
+  either way.</p>
+  <p class="hint">Use it when you need to make the case to a sponsor. Score each criterion 1 (blocking) to 5
+  (strong); skip any you can't judge yet. ABE turns the scores into a recommendation on the agent's page and in
+  <code>intake.md</code>: any 1 means "do not build yet", any 2 means "time-boxed prototype".</p>
   <table class="crit">
     {% for key, label in criteria.items() %}
     <tr>
       <td><strong>{{ label }}</strong></td>
-      <td><select name="{{ key }}_score">{% for n in range(1, 6) %}<option{% if n == 3 %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></td>
+      <td><select name="{{ key }}_score"><option value="" selected>—</option>{% for n in range(1, 6) %}<option>{{ n }}</option>{% endfor %}</select></td>
       <td><input type="text" name="{{ key }}_notes" placeholder="Why this score"></td>
     </tr>
     {% endfor %}

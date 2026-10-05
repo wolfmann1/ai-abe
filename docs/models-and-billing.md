@@ -1,7 +1,7 @@
 # Models and billing
 
 ABE needs a model only for the `ask` path: the web workbench, `abe ask`, `abe eval`, and the MCP `ask` tool.
-Retrieval, the intake screen, the cost model and the MCP `search_knowledge` tool run without one. That leaves
+Retrieval, the optional intake screen, the cost model and the MCP `search_knowledge` tool run without one. That leaves
 five ways to pay for the model.
 
 | Option | Billed to | Key needed in ABE | Best for |

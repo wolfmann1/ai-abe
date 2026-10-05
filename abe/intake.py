@@ -1,5 +1,8 @@
 """Intake screen: decide whether an AI agent is worth building before building it.
 
+The screen is optional. Leave every criterion blank and the agent is built without it;
+score some and the recommendation uses only those.
+
 Six criteria, each scored 1 (blocking) to 5 (strong):
 
     data_readiness         Do the documents exist, are they current, and can we use them?
@@ -25,7 +28,7 @@ CRITERIA = {
 
 
 class Criterion(BaseModel):
-    score: int = Field(3, ge=1, le=5)
+    score: int | None = Field(None, ge=1, le=5)
     notes: str = ""
 
 
@@ -39,10 +42,18 @@ class Intake(BaseModel):
     value_statement: str = ""
 
     def scores(self) -> dict[str, int]:
-        return {key: getattr(self, key).score for key in CRITERIA}
+        """Scores for the criteria that were filled in."""
+        return {key: getattr(self, key).score for key in CRITERIA if getattr(self, key).score is not None}
+
+    def is_empty(self) -> bool:
+        return not self.scores() and not self.value_statement.strip() and not any(
+            getattr(self, key).notes.strip() for key in CRITERIA
+        )
 
     def recommendation(self) -> tuple[str, str]:
         scores = self.scores()
+        if not scores:
+            return "Not assessed", "No criteria were scored."
         blocking = [CRITERIA[k] for k, v in scores.items() if v <= 1]
         weak = [CRITERIA[k] for k, v in scores.items() if v == 2]
         average = sum(scores.values()) / len(scores)
@@ -70,7 +81,8 @@ class Intake(BaseModel):
         lines += ["## Criteria", "", "| Criterion | Score | Notes |", "|---|---|---|"]
         for key, label in CRITERIA.items():
             item: Criterion = getattr(self, key)
-            lines.append(f"| {label} | {item.score}/5 | {item.notes.replace('|', '/') or '—'} |")
+            score = f"{item.score}/5" if item.score is not None else "not scored"
+            lines.append(f"| {label} | {score} | {item.notes.replace('|', '/') or '—'} |")
         lines += [
             "",
             "Scores: 1 = blocking, 3 = workable, 5 = strong. Any 1 stops the build; any 2 limits it to a "
