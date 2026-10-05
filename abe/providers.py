@@ -23,7 +23,6 @@ from .spec import ProviderConfig
 
 TIMEOUT_SECONDS = 60
 ANTHROPIC_VERSION = "2023-06-01"
-OLLAMA_DEFAULT_URL = "http://localhost:11434/v1"
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_HEADERS = {"HTTP-Referer": "https://github.com/wolfmann1/ai-abe", "X-OpenRouter-Title": "ai-abe"}
 
@@ -97,7 +96,9 @@ class OpenAICompatibleProvider(Provider):
     def complete(self, system: str, user: str) -> Completion:
         if not self.config.model:
             raise ProviderError("provider.model is required (e.g. a model name pulled into Ollama).")
-        base = (self.config.endpoint or OLLAMA_DEFAULT_URL).rstrip("/")
+        from .ollama import openai_endpoint
+
+        base = (self.config.endpoint or openai_endpoint()).rstrip("/")
         headers = {"Content-Type": "application/json", **self.config.extra_headers}
         key = self._key(required=False)
         if key:

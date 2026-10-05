@@ -6,6 +6,7 @@
     POST /agents/{slug}/ask       answer one question
     POST /agents/{slug}/eval      run the test set
     GET  /agents/{slug}/download  zip of the package
+    POST /agents/{slug}/pull      download the agent's Ollama model in the background
 """
 
 from __future__ import annotations
@@ -16,17 +17,19 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from . import ollama
 from .agent import Agent
 from .builder import Blueprint, SampleQuestion, build_agent, zip_agent
 from .cost import CostInputs
 from .evals import TestSet, run_eval, write_report
 from .ingest import SUPPORTED_SUFFIXES
 from .intake import CRITERIA, Criterion, Intake
-from .providers import OLLAMA_DEFAULT_URL, OPENROUTER_HEADERS, OPENROUTER_URL, ProviderError
+from .providers import OPENROUTER_HEADERS, OPENROUTER_URL, ProviderError
 from .spec import AgentSpec, ProviderConfig, slugify
 
 MAX_FILES = 50
@@ -35,7 +38,7 @@ SAMPLE_ROWS = 5
 
 PROVIDER_CHOICES = {
     "azure_openai": ("Azure OpenAI", "azure_openai", "", "AZURE_OPENAI_API_KEY"),
-    "ollama": ("Local model (Ollama)", "openai_compatible", OLLAMA_DEFAULT_URL, ""),
+    "ollama": ("Local model (Ollama)", "openai_compatible", "", ""),
     "openrouter": ("OpenRouter (prepaid credits, many models)", "openai_compatible", OPENROUTER_URL,
                    "OPENROUTER_API_KEY"),
     "openai": ("OpenAI", "openai_compatible", "https://api.openai.com/v1", "OPENAI_API_KEY"),
@@ -64,8 +67,11 @@ def create_app(workspace: str | Path) -> Starlette:
 
     async def form(request: Request) -> Response:
         agents = sorted(p.name for p in workspace.iterdir() if (p / "agent.yaml").exists())
+        ollama_models = await run_in_threadpool(ollama.list_models)
         return render(
             "form.html",
+            ollama_models=ollama_models,
+            ollama_host=ollama.host(),
             providers=PROVIDER_CHOICES,
             criteria=CRITERIA,
             sample_rows=range(1, SAMPLE_ROWS + 1),
@@ -106,6 +112,12 @@ def create_app(workspace: str | Path) -> Starlette:
                 build_agent(blueprint, saved, workspace)
             except ValueError as exc:
                 return render("error.html", message=str(exc), status=400)
+        provider = blueprint.spec.provider
+        if is_ollama(provider) and provider.model:
+            base = ollama.host_from_endpoint(provider.endpoint)
+            installed = await run_in_threadpool(ollama.list_models, base)
+            if installed is not None and not ollama.is_installed(provider.model, installed):
+                ollama.start_pull(provider.model, base)
         return RedirectResponse(f"/agents/{blueprint.spec.slug}", status_code=303)
 
     async def show(request: Request) -> Response:
@@ -114,7 +126,7 @@ def create_app(workspace: str | Path) -> Starlette:
             agent_dir = agent_dir_for(slug)
         except FileNotFoundError:
             return render("error.html", message=f"No agent named {slug}.", status=404)
-        return render("agent.html", **_agent_context(agent_dir))
+        return render("agent.html", **await run_in_threadpool(_agent_context, agent_dir))
 
     async def ask(request: Request) -> Response:
         slug = request.path_params["slug"]
@@ -124,7 +136,7 @@ def create_app(workspace: str | Path) -> Starlette:
             return render("error.html", message=f"No agent named {slug}.", status=404)
         data = await request.form()
         question = str(data.get("question", "")).strip()
-        context = _agent_context(agent_dir)
+        context = await run_in_threadpool(_agent_context, agent_dir)
         if question:
             try:
                 context["answer"] = Agent.from_directory(agent_dir).ask(question)
@@ -139,7 +151,7 @@ def create_app(workspace: str | Path) -> Starlette:
             agent_dir = agent_dir_for(slug)
         except FileNotFoundError:
             return render("error.html", message=f"No agent named {slug}.", status=404)
-        context = _agent_context(agent_dir)
+        context = await run_in_threadpool(_agent_context, agent_dir)
         try:
             report = run_eval(Agent.from_directory(agent_dir), TestSet.load(agent_dir / "evals" / "testset.yaml"))
             write_report(report, agent_dir / "evals")
@@ -157,6 +169,17 @@ def create_app(workspace: str | Path) -> Starlette:
         archive = zip_agent(agent_dir)
         return FileResponse(archive, filename=archive.name, media_type="application/zip")
 
+    async def pull(request: Request) -> Response:
+        slug = request.path_params["slug"]
+        try:
+            agent_dir = agent_dir_for(slug)
+        except FileNotFoundError:
+            return render("error.html", message=f"No agent named {slug}.", status=404)
+        provider = AgentSpec.load(agent_dir / "agent.yaml").provider
+        if is_ollama(provider) and provider.model:
+            ollama.start_pull(provider.model, ollama.host_from_endpoint(provider.endpoint))
+        return RedirectResponse(f"/agents/{slug}", status_code=303)
+
     return Starlette(
         routes=[
             Route("/", form),
@@ -165,6 +188,7 @@ def create_app(workspace: str | Path) -> Starlette:
             Route("/agents/{slug}/ask", ask, methods=["POST"]),
             Route("/agents/{slug}/eval", evaluate, methods=["POST"]),
             Route("/agents/{slug}/download", download),
+            Route("/agents/{slug}/pull", pull, methods=["POST"]),
         ]
     )
 
@@ -183,6 +207,29 @@ def _agent_context(agent_dir: Path) -> dict:
         "files": files,
         "cost_md": (agent_dir / "cost.md").read_text(encoding="utf-8"),
         "system_prompt": spec.system_prompt(),
+        "ollama": _ollama_context(spec.provider),
+    }
+
+
+def is_ollama(provider: ProviderConfig) -> bool:
+    if provider.kind != "openai_compatible":
+        return False
+    base = ollama.host_from_endpoint(provider.endpoint)
+    return base == ollama.host() or ":11434" in base
+
+
+def _ollama_context(provider: ProviderConfig) -> dict | None:
+    """What the agent page should say about the agent's local model, or None for other providers."""
+    if not is_ollama(provider) or not provider.model:
+        return None
+    base = ollama.host_from_endpoint(provider.endpoint)
+    installed = ollama.list_models(base)
+    return {
+        "model": provider.model,
+        "host": base,
+        "reachable": installed is not None,
+        "installed": installed is not None and ollama.is_installed(provider.model, installed),
+        "pull": ollama.pull_status(provider.model),
     }
 
 
@@ -205,6 +252,8 @@ def blueprint_from_form(data) -> Blueprint:
     if choice not in PROVIDER_CHOICES:
         raise ValueError(f"Unknown provider choice: {choice}")
     _label, kind, default_endpoint, default_key_env = PROVIDER_CHOICES[choice]
+    if choice == "ollama":
+        default_endpoint = ollama.openai_endpoint()
     provider = ProviderConfig(
         kind=kind,
         model=text("model"),

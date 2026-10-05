@@ -87,6 +87,28 @@ accuracy, which cases failed, and the token counts that drive `cost.md`. OpenRou
 each run actually cost. Some models are listed with a `:free` suffix; they cost nothing but have tight rate
 limits, which an eval run can hit.
 
+## Local models with Ollama
+
+Ollama runs models on your own computer, so nothing leaves it and there is nothing to pay per question.
+
+1. Install Ollama from [ollama.com](https://ollama.com) and start it. ABE looks for it at
+   `http://localhost:11434`, or at the address in the `OLLAMA_HOST` environment variable if you've set one.
+2. In step 5 of the form, choose **Local model (Ollama)**. A panel lists every model Ollama has installed;
+   click one to use it. The model box also offers them as suggestions.
+3. If the model you want isn't listed, either:
+   - install it yourself with `ollama pull <model>` and reload the form, or
+   - type its name in the model box. When you build the agent, ABE asks Ollama to download it, and the agent's
+     page shows the progress and refreshes until it finishes. Models are several gigabytes, so expect minutes
+     rather than seconds.
+4. If the download fails, usually because the name is misspelt or the network dropped, the agent's page shows
+   Ollama's error and the command to run instead: `ollama pull <model>`. Run it in a terminal and reload the
+   page. A **Try the download again** button is there too.
+
+Model names come from [ollama.com/library](https://ollama.com/library). A name without a tag, such as
+`llama3.1`, means `llama3.1:latest`; add a tag such as `qwen2.5:7b` to choose a specific size. Smaller models
+answer faster and fit on more graphics cards; larger ones usually score better in `abe eval`. To switch models
+later, change `model` in the agent's `agent.yaml`; the index doesn't need rebuilding.
+
 ## Azure OpenAI on an existing Azure subscription
 
 For an organization already on Azure, this keeps model spend on the existing Azure bill and the data inside

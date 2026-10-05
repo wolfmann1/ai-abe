@@ -40,8 +40,10 @@ abe serve
 Open http://127.0.0.1:8765, fill in the form, upload documents and select **Build agent**.
 
 To try it without a model, choose **No model: quote the best passages** as the provider. To use a local
-model, install [Ollama](https://ollama.com), run `ollama pull llama3.1`, choose **Local model (Ollama)** and
-enter `llama3.1` as the model.
+model, install and start [Ollama](https://ollama.com) and choose **Local model (Ollama)**. The form lists the
+models Ollama already has; pick one, or type the name of another and ABE downloads it when you build the agent.
+If that download fails, run `ollama pull <model>` yourself. See
+[docs/models-and-billing.md](docs/models-and-billing.md#local-models-with-ollama).
 
 For Azure OpenAI, enter the resource URL and deployment name, and set the key in your shell:
 

@@ -10,6 +10,36 @@
   <p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}</p>
 </div>
 
+{% if ollama %}
+<div class="card">
+  <h2>Local model</h2>
+  {% set pull = ollama.pull %}
+  {% if pull and pull.active %}
+    <meta http-equiv="refresh" content="5; url=/agents/{{ spec.slug }}">
+    <p>Downloading <code>{{ ollama.model }}</code> through Ollama{% if pull.percent is not none %}: <strong>{{ pull.percent }}%</strong>{% endif %}.
+    <span class="hint">{{ pull.message }}</span></p>
+    <p class="hint">This page refreshes every 5 seconds. You can leave it; the download continues in the background.</p>
+  {% elif pull and pull.state == "error" and not ollama.installed %}
+    <p class="fail">The download of <code>{{ ollama.model }}</code> failed.</p>
+    <p class="hint">{{ pull.message }}</p>
+    <p>Install it manually in a terminal, then reload this page:</p>
+    <pre>ollama pull {{ ollama.model }}</pre>
+    <form method="post" action="/agents/{{ spec.slug }}/pull"><button type="submit" class="button secondary">Try the download again</button></form>
+  {% elif ollama.installed %}
+    <p><span class="pass">Ready.</span> <code>{{ ollama.model }}</code> is installed in Ollama at <code>{{ ollama.host }}</code>.</p>
+  {% elif not ollama.reachable %}
+    <p class="fail">Ollama isn't running at <code>{{ ollama.host }}</code>.</p>
+    <p class="hint">Start Ollama (or install it from ollama.com) and reload this page. If <code>{{ ollama.model }}</code>
+    isn't installed by then, run <code>ollama pull {{ ollama.model }}</code>.</p>
+  {% else %}
+    <p><code>{{ ollama.model }}</code> isn't installed in Ollama yet.</p>
+    <form method="post" action="/agents/{{ spec.slug }}/pull"><button type="submit">Download it now</button></form>
+    <p class="hint">Or run <code>ollama pull {{ ollama.model }}</code> in a terminal and reload this page. If the name
+    is wrong, edit <code>model</code> in agent.yaml.</p>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Ask</h2>
   <form method="post" action="/agents/{{ spec.slug }}/ask">

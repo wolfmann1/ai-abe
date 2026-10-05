@@ -31,7 +31,8 @@ flowchart LR
 | `cost.py` | Monthly token volume and cost from usage assumptions and the rates you enter. |
 | `builder.py` | Writes the agent package from a blueprint and documents. |
 | `mcp_server.py` | Exposes `search_knowledge`, `ask`, `list_sources` and the `agent_rules` prompt to MCP clients; `--retrieval-only` leaves out `ask`. |
-| `web.py` | Starlette app: intake form, workbench, evaluation, download. |
+| `ollama.py` | Finds the local Ollama server, lists installed models, downloads missing ones in the background. |
+| `web.py` | Starlette app: intake form, workbench, evaluation, download, Ollama model status. |
 | `cli.py` | `serve`, `build`, `reindex`, `ask`, `eval`, `mcp`. |
 
 ## Design decisions
