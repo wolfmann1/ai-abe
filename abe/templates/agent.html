@@ -44,9 +44,11 @@
 
 <div class="card">
   <h2>Ask</h2>
-  <form method="post" action="/agents/{{ spec.slug }}/ask">
+  <form method="post" action="/agents/{{ spec.slug }}/ask" class="busy-form"
+        data-busy="Searching the documents and waiting for the model. A local model can take 10–30 seconds on its first answer while it loads.">
     <input type="text" name="question" value="{{ question or '' }}" placeholder="Ask a question the documents should answer">
     <div class="actions" style="margin-top:10px"><button type="submit">Ask</button></div>
+    <p class="busy-status hint" hidden><span class="spinner"></span><span class="busy-text"></span></p>
   </form>
   {% if answer %}
     <p></p>
@@ -59,12 +61,20 @@
   {% endif %}
 </div>
 
-{% if error %}<div class="card error"><strong>Provider error.</strong> {{ error }}</div>{% endif %}
+{% if error %}
+<div class="card error">
+  <h2>The model returned an error</h2>
+  {% if error_hints %}<ul>{% for h in error_hints %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
+  <details{% if not error_hints %} open{% endif %}><summary>Full error</summary><pre>{{ error }}</pre></details>
+</div>
+{% endif %}
 
 <div class="card">
   <h2>Evaluate</h2>
-  <form method="post" action="/agents/{{ spec.slug }}/eval">
+  <form method="post" action="/agents/{{ spec.slug }}/eval" class="busy-form"
+        data-busy="Running every test question through the agent. This takes one model answer per question.">
     <div class="actions"><button type="submit">Run test set</button></div>
+    <p class="busy-status hint" hidden><span class="spinner"></span><span class="busy-text"></span></p>
   </form>
   {% if report %}
     <p>Accuracy <strong>{{ '%.0f' % (report.accuracy * 100) }}%</strong>
@@ -90,4 +100,21 @@
   <details style="margin-top:12px"><summary>System prompt</summary><pre>{{ system_prompt }}</pre></details>
   <details><summary>Cost model</summary><pre>{{ cost_md }}</pre></details>
 </div>
+<script>
+  document.querySelectorAll(".busy-form").forEach(function (form) {
+    form.addEventListener("submit", function () {
+      var button = form.querySelector("button[type=submit]");
+      var status = form.querySelector(".busy-status");
+      if (button) { button.disabled = true; button.textContent = "Working…"; }
+      if (status) { status.querySelector(".busy-text").textContent = form.dataset.busy; status.hidden = false; }
+      var started = Date.now();
+      setInterval(function () {
+        if (status) {
+          status.querySelector(".busy-text").textContent =
+            form.dataset.busy + " (" + Math.round((Date.now() - started) / 1000) + "s)";
+        }
+      }, 1000);
+    });
+  });
+</script>
 {% endblock %}

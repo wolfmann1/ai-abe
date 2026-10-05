@@ -44,6 +44,11 @@ models Ollama already has; pick one, or type the name of another and ABE downloa
 If that download fails, run `ollama pull <model>` yourself. See
 [docs/models-and-billing.md](docs/models-and-billing.md#local-models-with-ollama).
 
+A local model has to fit in your graphics card's memory (VRAM): its download size plus about 2 GB should be no more
+than your VRAM. On an 8 GB card, `gemma4:e4b-it-qat` or `llama3.1:8b` fit; a 26B model needs about 20 GB. If the
+model is too big, asking a question fails with an "out of memory" error. [docs/choosing-a-local-model.md](docs/choosing-a-local-model.md)
+explains how to check your VRAM, what the tag names mean, and how to confirm the model is running on the GPU.
+
 For Azure OpenAI, enter the resource URL and deployment name, and set the key in your shell:
 
 ```

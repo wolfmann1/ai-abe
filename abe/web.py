@@ -142,6 +142,7 @@ def create_app(workspace: str | Path) -> Starlette:
                 context["answer"] = Agent.from_directory(agent_dir).ask(question)
             except ProviderError as exc:
                 context["error"] = str(exc)
+                context["error_hints"] = error_hints(str(exc))
             context["question"] = question
         return render("agent.html", **context)
 
@@ -158,6 +159,7 @@ def create_app(workspace: str | Path) -> Starlette:
             context["report"] = report
         except ProviderError as exc:
             context["error"] = str(exc)
+            context["error_hints"] = error_hints(str(exc))
         return render("agent.html", **context)
 
     async def download(request: Request) -> Response:
@@ -210,6 +212,30 @@ def _agent_context(agent_dir: Path) -> dict:
         "system_prompt": spec.system_prompt(),
         "ollama": _ollama_context(spec.provider),
     }
+
+
+def error_hints(message: str) -> list[str]:
+    """Plain-language suggestions for the provider errors people hit most often."""
+    text = message.lower()
+    hints: list[str] = []
+    if "out of memory" in text or "cuda error" in text:
+        hints += [
+            "The model didn't fit in your graphics card's memory (VRAM). A model fits when its download size plus "
+            "about 2 GB is no more than your VRAM: on an 8 GB card, gemma4:e4b-it-qat or llama3.1:8b; a 26B model "
+            "needs about 20 GB. See docs/choosing-a-local-model.md.",
+            "Pick a smaller model or a smaller tag (for example 4b or 8b instead of 26b) and change 'model' in "
+            "agent.yaml.",
+            "Free VRAM: run 'ollama ps' to see what's loaded, 'ollama stop <model>' to unload it, and close games "
+            "or other GPU-heavy programs.",
+        ]
+    if "could not reach" in text or "connection refused" in text or "failed to establish" in text:
+        hints.append("Nothing answered at the model's address. If it's Ollama, start it and try again.")
+    if "not found" in text and "model" in text:
+        hints.append("The model name isn't installed. Run 'ollama list' to see installed names, or "
+                     "'ollama pull <model>' to install it.")
+    if "api key" in text:
+        hints.append("Set the key in the same terminal before running 'abe serve', then restart it.")
+    return hints
 
 
 def is_ollama(provider: ProviderConfig) -> bool:

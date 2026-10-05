@@ -67,6 +67,7 @@ class WebTests(unittest.TestCase):
             self.assertFalse((tmp / "quick-try" / "intake.md").exists())
             page = client.get("/agents/quick-try")
             self.assertNotIn("<h2>Intake</h2>", page.text)
+            self.assertIn("<title>Quick Try · ai-abe</title>", page.text)
 
     def test_rejects_bad_file_type_and_missing_name(self):
         with TempDir() as tmp:
@@ -82,6 +83,14 @@ class WebTests(unittest.TestCase):
             client = self.client(tmp)
             self.assertEqual(client.get("/agents/nope").status_code, 404)
             self.assertEqual(client.get("/agents/..%2F..%2Fetc").status_code, 404)
+
+    def test_error_hints(self):
+        from abe.web import error_hints
+
+        oom = error_hints("HTTP 500: llama-server reported out-of-memory ... CUDA error: out of memory")
+        self.assertTrue(any("VRAM" in h for h in oom))
+        self.assertTrue(any("Nothing answered" in h for h in error_hints("Could not reach Ollama")))
+        self.assertEqual(error_hints("something unexpected"), [])
 
     def test_safe_filename(self):
         from abe.web import safe_filename

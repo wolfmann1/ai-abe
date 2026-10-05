@@ -109,6 +109,8 @@ Model names come from [ollama.com/library](https://ollama.com/library). A name w
 answer faster and fit on more graphics cards; larger ones usually score better in `abe eval`. To switch models
 later, change `model` in the agent's `agent.yaml`; the index doesn't need rebuilding.
 
+To pick a model that fits your graphics card, see [choosing-a-local-model.md](choosing-a-local-model.md).
+
 ## Azure OpenAI on an existing Azure subscription
 
 For an organization already on Azure, this keeps model spend on the existing Azure bill and the data inside
