@@ -7,7 +7,8 @@
 - Ollama integration: lists installed models in the form and downloads missing ones in the background
 - MCP server, including a retrieval-only mode for clients that use an existing chat subscription
 - Edit an existing agent: model, rules, documents, search settings and test set, from the web or `abe set-model`
-- Effort levels (Quick, Standard, Thorough) and answer-style options that adjust the system prompt
+- Effort levels (Quick, Standard, Thorough, Custom) and answer-style options that adjust the system prompt, plus
+  your own rules and style lines or a hand-written system prompt
 - Evaluation harness with a CI gate, optional intake screen, cost model
 - Guides: models and billing, choosing a local model for your GPU
 

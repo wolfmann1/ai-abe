@@ -21,7 +21,7 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| `spec.py` | `AgentSpec`: name, purpose, rules, effort level, answer style, provider and retrieval settings. Generates the system prompt. |
+| `spec.py` | `AgentSpec`: name, purpose, rules, effort level, answer style, provider and retrieval settings. Generates the system prompt from them, or uses one written by hand. |
 | `ingest.py` | Reads PDF, DOCX, TXT and Markdown; splits text into overlapping chunks on paragraph and sentence boundaries. |
 | `index.py` | BM25 keyword index, stored as JSON. |
 | `providers.py` | Azure OpenAI, OpenAI-compatible (OpenRouter, OpenAI, Ollama, LM Studio, vLLM), Anthropic, and the no-model extractive baseline. Plain HTTPS via `requests`. |

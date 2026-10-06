@@ -86,11 +86,17 @@ def update_agent(
     if old.retrieval != spec.retrieval:
         result.changes.append("Retrieval settings updated")
     rules = ("name", "description", "problem", "goal", "audience", "out_of_scope", "tone",
-             "require_citations", "human_review")
+             "require_citations", "human_review", "additional_rules")
     if any(getattr(old, f) != getattr(spec, f) for f in rules):
         result.changes.append("Description and rules updated")
     if old.effort != spec.effort:
         result.changes.append(f"Effort: {old.effort} → {spec.effort}")
+    elif old.effort_instruction != spec.effort_instruction and spec.effort == "custom":
+        result.changes.append("Custom effort instruction updated")
+    if old.prompt_override != spec.prompt_override:
+        result.changes.append(
+            "System prompt written by hand" if spec.prompt_override else "Back to the generated system prompt"
+        )
     if old.style != spec.style:
         result.changes.append("Answer style updated")
 

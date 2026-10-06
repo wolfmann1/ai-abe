@@ -41,12 +41,23 @@ the change did.</p>
   <input type="text" name="tone" value="{{ spec.tone }}">
   <label class="check"><input type="checkbox" name="require_citations"{% if spec.require_citations %} checked{% endif %}> Cite sources in every answer</label>
   <label class="check"><input type="checkbox" name="human_review"{% if spec.human_review %} checked{% endif %}> Flag every answer for human review before action</label>
+  <label>Additional rules <span class="hint">Optional. One per line, added to the system prompt as written.</span></label>
+  <textarea name="additional_rules">{{ spec.additional_rules | join('\n') }}</textarea>
 </fieldset>
 
 <fieldset>
   <legend>Effort and answer style</legend>
   {% include "_answers.html" %}
-  <details style="margin-top:12px"><summary>Current system prompt</summary><pre>{{ spec.system_prompt() }}</pre></details>
+  <details style="margin-top:12px"{% if spec.prompt_override %} open{% endif %}><summary>Write the whole system prompt yourself</summary>
+    <p class="hint">Leave blank to use the prompt built from the settings on this page (shown below). Text here
+    replaces it entirely, so the settings above stop affecting it. Each question still arrives with passages
+    numbered [1], [2] and so on; keep an instruction to answer from them and cite them, or answers will drift from
+    the documents.</p>
+    <textarea name="prompt_override" style="min-height:200px;font-family:ui-monospace,Consolas,monospace;font-size:.88rem"
+              placeholder="Blank = use the generated prompt">{{ spec.prompt_override }}</textarea>
+    <p class="hint">Generated prompt:</p>
+    <pre>{{ spec.generated_prompt() }}</pre>
+  </details>
 </fieldset>
 
 <fieldset>

@@ -332,15 +332,17 @@ def spec_from_edit_form(data, old: AgentSpec) -> AgentSpec:
         "tone": text("tone") or AgentSpec.model_fields["tone"].default,
         "require_citations": bool(data.get("require_citations")),
         "human_review": bool(data.get("human_review")),
+        "additional_rules": lines_from_form(data, "additional_rules"),
         "style": style_from_form(data),
+        "prompt_override": str(data.get("prompt_override", "") or "").replace("\r\n", "\n").strip(),
         "provider": provider,
         "retrieval": retrieval,
     })
-    effort = effort_from_form(data, old.effort)
+    effort, effort_instruction = effort_from_form(data, old.effort)
     if effort != old.effort:
         # A new level resets passages and answer length to its preset; otherwise keep the fine-tuned values.
         updated = updated.with_effort(effort)
-    return updated
+    return updated.model_copy(update={"effort_instruction": effort_instruction})
 
 
 def error_hints(message: str) -> list[str]:
@@ -367,15 +369,24 @@ def error_hints(message: str) -> list[str]:
     return hints
 
 
+def lines_from_form(data, key: str) -> list[str]:
+    return [line.strip() for line in str(data.get(key, "") or "").splitlines() if line.strip()]
+
+
 def style_from_form(data) -> AnswerStyle:
-    return AnswerStyle(**{field: bool(data.get(f"style_{field}")) for field in AnswerStyle.model_fields})
+    flags = {f: bool(data.get(f"style_{f}")) for f in AnswerStyle.model_fields if f != "custom"}
+    return AnswerStyle(**flags, custom=lines_from_form(data, "style_custom"))
 
 
-def effort_from_form(data, default: str = "standard") -> str:
+def effort_from_form(data, default: str = "standard") -> tuple[str, str]:
+    """The chosen effort level and, for 'custom', the user's instruction."""
     effort = str(data.get("effort") or default)
     if effort not in EFFORT_PRESETS:
         raise ValueError(f"Unknown effort level: {effort}")
-    return effort
+    instruction = str(data.get("effort_instruction", "") or "").strip()
+    if effort == "custom" and not instruction:
+        raise ValueError("Custom effort needs an instruction, for example 'Think hard before answering.'")
+    return effort, instruction
 
 
 def is_ollama(provider: ProviderConfig) -> bool:
@@ -450,9 +461,12 @@ def blueprint_from_form(data) -> Blueprint:
         tone=text("tone") or AgentSpec.model_fields["tone"].default,
         require_citations=bool(data.get("require_citations")),
         human_review=bool(data.get("human_review")),
+        additional_rules=lines_from_form(data, "additional_rules"),
         style=style_from_form(data),
         provider=provider,
-    ).with_effort(effort_from_form(data))
+    )
+    effort, effort_instruction = effort_from_form(data)
+    spec = spec.with_effort(effort).model_copy(update={"effort_instruction": effort_instruction})
 
     def score(key: str) -> int | None:
         raw = text(key)

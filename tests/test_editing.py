@@ -186,6 +186,55 @@ class EffortAndStyleTests(unittest.TestCase):
             self.assertEqual(AgentSpec.load(tmp / "stash-ops-assistant" / "agent.yaml").retrieval.top_k, 6)
 
 
+class CustomPromptTests(unittest.TestCase):
+    def client(self, workspace):
+        from starlette.testclient import TestClient
+
+        from abe.web import create_app
+
+        return TestClient(create_app(workspace))
+
+    def test_custom_rules_style_and_effort(self):
+        with TempDir() as tmp:
+            build_example(tmp)
+            client = self.client(tmp)
+            form = {"name": "Stash Ops Assistant", "provider": "extractive", "original_provider": "azure_openai",
+                    "top_k": "5", "additional_rules": "Never quote prices.\r\n\r\nAnswer in English.",
+                    "style_custom": "Use British spelling.", "effort": "custom",
+                    "effort_instruction": "Think hard before answering."}
+            response = client.post("/agents/stash-ops-assistant/edit", data=form, follow_redirects=False)
+            self.assertEqual(response.status_code, 303, response.text)
+            spec = AgentSpec.load(tmp / "stash-ops-assistant" / "agent.yaml")
+            self.assertEqual(spec.additional_rules, ["Never quote prices.", "Answer in English."])
+            self.assertEqual(spec.retrieval.top_k, 5)  # custom effort leaves passages alone
+            prompt = spec.system_prompt()
+            for line in ("- Never quote prices.", "- Use British spelling.", "- Think hard before answering."):
+                self.assertIn(line, prompt)
+            page = client.get("/agents/stash-ops-assistant/edit").text
+            self.assertIn("Never quote prices.\nAnswer in English.</textarea>", page)
+
+            missing = client.post("/agents/stash-ops-assistant/edit", data={**form, "effort_instruction": ""})
+            self.assertEqual(missing.status_code, 400)
+
+    def test_prompt_override(self):
+        with TempDir() as tmp:
+            build_example(tmp)
+            client = self.client(tmp)
+            form = {"name": "Stash Ops Assistant", "provider": "extractive", "original_provider": "azure_openai",
+                    "prompt_override": "You are a terse assistant. Cite passages as [n]."}
+            response = client.post("/agents/stash-ops-assistant/edit", data=form, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+            spec = AgentSpec.load(tmp / "stash-ops-assistant" / "agent.yaml")
+            self.assertEqual(spec.system_prompt(), "You are a terse assistant. Cite passages as [n].")
+            self.assertIn("You are Stash Ops Assistant", spec.generated_prompt())
+            self.assertIn("terse", (tmp / "stash-ops-assistant" / "system_prompt.md").read_text())
+            self.assertIn("System prompt written by hand", client.get(response.headers["location"]).text)
+
+            client.post("/agents/stash-ops-assistant/edit", data={**form, "prompt_override": ""})
+            spec = AgentSpec.load(tmp / "stash-ops-assistant" / "agent.yaml")
+            self.assertIn("You are Stash Ops Assistant", spec.system_prompt())
+
+
 class CliTests(unittest.TestCase):
     def test_set_model(self):
         from abe.cli import main

@@ -46,7 +46,7 @@ class RetrievalConfig(BaseModel):
     )
 
 
-Effort = Literal["quick", "standard", "thorough"]
+Effort = Literal["quick", "standard", "thorough", "custom"]
 
 # What each effort level sets. Passages and answer length are applied to the agent's settings when the
 # level is chosen, and can still be fine-tuned afterwards; the instruction goes into the system prompt.
@@ -65,6 +65,8 @@ EFFORT_PRESETS: dict[str, dict] = {
             "passages leave unanswered."
         ),
     },
+    # Your own wording in `effort_instruction`; passages and answer length are left as they are.
+    "custom": {"top_k": None, "max_tokens": None, "instruction": ""},
 }
 
 
@@ -76,6 +78,7 @@ class AnswerStyle(BaseModel):
     version_aware: bool = Field(False, description="Say which version, product or region each part applies to.")
     flag_conflicts: bool = Field(False, description="Point out passages that disagree instead of picking one.")
     general_knowledge: bool = Field(False, description="Allow general knowledge, labelled as not from the documents.")
+    custom: list[str] = Field(default_factory=list, description="Your own style instructions, one per line.")
 
     def instructions(self) -> list[str]:
         lines = []
@@ -92,6 +95,7 @@ class AnswerStyle(BaseModel):
             )
         if self.flag_conflicts:
             lines.append("If two passages disagree, say so and cite both rather than picking one.")
+        lines.extend(line for line in self.custom if line.strip())
         return lines
 
 
@@ -106,7 +110,12 @@ class AgentSpec(BaseModel):
     tone: str = "Plain and direct. Short answers first, detail after."
     require_citations: bool = True
     human_review: bool = False
+    additional_rules: list[str] = Field(default_factory=list, description="Your own rules, one per line.")
     effort: Effort = "standard"
+    effort_instruction: str = Field("", description="Your own effort instruction when effort is 'custom'.")
+    prompt_override: str = Field(
+        "", description="A system prompt written by hand. When set, it replaces the generated one entirely."
+    )
     style: AnswerStyle = Field(default_factory=AnswerStyle)
     provider: ProviderConfig = Field(default_factory=ProviderConfig)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
@@ -116,6 +125,11 @@ class AgentSpec(BaseModel):
             self.slug = slugify(self.name)
 
     def system_prompt(self) -> str:
+        if self.prompt_override.strip():
+            return self.prompt_override.strip()
+        return self.generated_prompt()
+
+    def generated_prompt(self) -> str:
         lines = [f"You are {self.name}."]
         if self.description:
             lines.append(self.description)
@@ -143,13 +157,19 @@ class AgentSpec(BaseModel):
             lines.append("- Cite the passages you used with their numbers in square brackets, e.g. [1].")
         for item in self.out_of_scope:
             lines.append(f"- Out of scope, decline politely: {item}")
+        for rule in self.additional_rules:
+            if rule.strip():
+                lines.append(f"- {rule.strip()}")
         if self.human_review:
             lines.append(
                 "- End every answer with: 'Review required before acting on this answer.'"
             )
         for instruction in self.style.instructions():
             lines.append(f"- {instruction}")
-        effort = EFFORT_PRESETS[self.effort]["instruction"]
+        if self.effort == "custom":
+            effort = self.effort_instruction.strip()
+        else:
+            effort = EFFORT_PRESETS[self.effort]["instruction"]
         if effort:
             lines.append(f"- {effort}")
         lines.append(f"- Style: {self.tone}")
@@ -158,6 +178,8 @@ class AgentSpec(BaseModel):
     def with_effort(self, effort: str) -> AgentSpec:
         """A copy at the given effort level, with passages and answer length set to its preset."""
         preset = EFFORT_PRESETS[effort]
+        if effort == "custom":
+            return self.model_copy(update={"effort": effort})
         return self.model_copy(update={
             "effort": effort,
             "retrieval": self.retrieval.model_copy(update={"top_k": preset["top_k"]}),

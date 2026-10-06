@@ -9,6 +9,14 @@
     <span><strong>Standard</strong> <span class="hint">4 passages, answers up to about 600 words.</span></span></label>
   <label class="check"><input type="radio" name="effort" value="thorough"{% if effort == "thorough" %} checked{% endif %}>
     <span><strong>Thorough</strong> <span class="hint">8 passages; checks every passage and says what's missing. About twice the tokens per question.</span></span></label>
+  <label class="check"><input type="radio" name="effort" value="custom"{% if effort == "custom" %} checked{% endif %}>
+    <span><strong>Custom</strong> <span class="hint">Your own wording, such as "Think hard before answering". Passages and answer length stay as they are.</span></span></label>
+</div>
+<div id="effort-custom">
+<input type="text" name="effort_instruction" value="{{ spec.effort_instruction if spec else '' }}"
+       placeholder="e.g. Think hard before answering. Work through each part of the question step by step.">
+<p class="hint">Custom effort is sent to the model as an instruction in the system prompt. It doesn't switch on a
+model's built-in reasoning mode; that setting is on the roadmap.</p>
 </div>
 <p class="hint">Choosing a level sets passages per question and answer length; you can fine-tune both afterwards
 under Edit agent → Search and Model → Advanced.</p>
@@ -24,5 +32,18 @@ under Edit agent → Search and Model → Advanced.</p>
   Point out passages that disagree instead of picking one</label>
 <label class="check"><input type="checkbox" name="style_general_knowledge"{% if style and style.general_knowledge %} checked{% endif %}>
   Allow general knowledge where the documents fall short, labelled "Not from the documents"</label>
+<label>Other answer-style instructions <span class="hint">Optional. One per line, added to the system prompt as written.</span></label>
+<textarea name="style_custom" placeholder="Use British spelling.&#10;End with the next step the reader should take.">{{ style.custom | join('\n') if style else '' }}</textarea>
 <p class="hint">Questions with no matching passage at all are still declined before the model is asked. Run the
 test set after changing any of these to see what they did.</p>
+<script>
+  (function () {
+    var box = document.getElementById("effort-custom");
+    function update() {
+      var chosen = document.querySelector('input[name="effort"]:checked');
+      box.style.display = chosen && chosen.value === "custom" ? "" : "none";
+    }
+    document.querySelectorAll('input[name="effort"]').forEach(function (r) { r.addEventListener("change", update); });
+    update();
+  })();
+</script>

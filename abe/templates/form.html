@@ -63,6 +63,8 @@ a retrieval index, an MCP server entry and a starter test set.</p>
   <input type="text" name="tone" placeholder="Plain and direct. Short answers first, detail after.">
   <label class="check"><input type="checkbox" name="require_citations" checked> Cite sources in every answer</label>
   <label class="check"><input type="checkbox" name="human_review"> Flag every answer for human review before action</label>
+  <label>Additional rules <span class="hint">Optional. One per line, added to the system prompt as written.</span></label>
+  <textarea name="additional_rules" placeholder="Never quote prices; send pricing questions to the account team.&#10;Answer in English even if asked in another language."></textarea>
   {% set spec = none %}
   {% include "_answers.html" %}
 </fieldset>

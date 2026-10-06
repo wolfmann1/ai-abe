@@ -128,8 +128,10 @@ Open the agent's page and select **Edit agent**. From there you can:
 
 - change the model or switch provider, for example from Azure OpenAI to a local Ollama model
 - edit the description, audience, out-of-scope list, tone and citation rules
-- set the effort level (Quick, Standard or Thorough) and answer-style options such as numbered steps, commands
-  shown as code, version-aware answers, flagging conflicting passages, or allowing labelled general knowledge
+- set the effort level (Quick, Standard, Thorough, or Custom with your own wording such as "Think hard before
+  answering") and answer-style options such as numbered steps, commands shown as code, version-aware answers,
+  flagging conflicting passages, or allowing labelled general knowledge
+- add your own rules and answer-style instructions, one per line, or write the whole system prompt yourself
 - add or remove documents
 - adjust how many passages are sent per question, the minimum match score and the passage size
 - edit the test set
