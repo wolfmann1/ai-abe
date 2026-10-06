@@ -1,0 +1,28 @@
+{# Effort and answer-style fields, shared by the build and edit forms. `spec` is set when editing. #}
+{% set effort = spec.effort if spec else "standard" %}
+{% set style = spec.style if spec else none %}
+<label>Effort</label>
+<div class="effort">
+  <label class="check"><input type="radio" name="effort" value="quick"{% if effort == "quick" %} checked{% endif %}>
+    <span><strong>Quick</strong> <span class="hint">3 passages, short answers. Cheapest and fastest.</span></span></label>
+  <label class="check"><input type="radio" name="effort" value="standard"{% if effort == "standard" %} checked{% endif %}>
+    <span><strong>Standard</strong> <span class="hint">4 passages, answers up to about 600 words.</span></span></label>
+  <label class="check"><input type="radio" name="effort" value="thorough"{% if effort == "thorough" %} checked{% endif %}>
+    <span><strong>Thorough</strong> <span class="hint">8 passages; checks every passage and says what's missing. About twice the tokens per question.</span></span></label>
+</div>
+<p class="hint">Choosing a level sets passages per question and answer length; you can fine-tune both afterwards
+under Edit agent → Search and Model → Advanced.</p>
+
+<label>Answer style <span class="hint">Each option adds one instruction to the system prompt</span></label>
+<label class="check"><input type="checkbox" name="style_steps"{% if style and style.steps %} checked{% endif %}>
+  Give procedures as numbered steps</label>
+<label class="check"><input type="checkbox" name="style_code_blocks"{% if style and style.code_blocks %} checked{% endif %}>
+  Show commands, file paths and settings as code, exactly as written</label>
+<label class="check"><input type="checkbox" name="style_version_aware"{% if style and style.version_aware %} checked{% endif %}>
+  Say which version, product or region each part of the answer applies to</label>
+<label class="check"><input type="checkbox" name="style_flag_conflicts"{% if style and style.flag_conflicts %} checked{% endif %}>
+  Point out passages that disagree instead of picking one</label>
+<label class="check"><input type="checkbox" name="style_general_knowledge"{% if style and style.general_knowledge %} checked{% endif %}>
+  Allow general knowledge where the documents fall short, labelled "Not from the documents"</label>
+<p class="hint">Questions with no matching passage at all are still declined before the model is asked. Run the
+test set after changing any of these to see what they did.</p>

@@ -7,6 +7,8 @@
     POST /agents/{slug}/eval      run the test set
     GET  /agents/{slug}/download  zip of the package
     POST /agents/{slug}/pull      download the agent's Ollama model in the background
+    GET  /agents/{slug}/edit      edit form: model, rules, retrieval, documents, test set
+    POST /agents/{slug}/edit      save the edits
 """
 
 from __future__ import annotations
@@ -25,26 +27,18 @@ from starlette.routing import Route
 from . import ollama
 from .agent import Agent
 from .builder import Blueprint, SampleQuestion, build_agent, zip_agent
+from .editor import update_agent
 from .cost import CostInputs
 from .evals import TestSet, run_eval, write_report
 from .ingest import SUPPORTED_SUFFIXES
 from .intake import CRITERIA, Criterion, Intake
-from .providers import OPENROUTER_HEADERS, OPENROUTER_URL, ProviderError
-from .spec import AgentSpec, ProviderConfig, slugify
+from .providers import PROVIDER_CHOICES, ProviderError, choice_for, provider_from_choice
+from .spec import EFFORT_PRESETS, AgentSpec, AnswerStyle, ProviderConfig, slugify
 
 MAX_FILES = 50
 MAX_FILE_BYTES = 25 * 1024 * 1024
 SAMPLE_ROWS = 5
 
-PROVIDER_CHOICES = {
-    "azure_openai": ("Azure OpenAI", "azure_openai", "", "AZURE_OPENAI_API_KEY"),
-    "ollama": ("Local model (Ollama)", "openai_compatible", "", ""),
-    "openrouter": ("OpenRouter (prepaid credits, many models)", "openai_compatible", OPENROUTER_URL,
-                   "OPENROUTER_API_KEY"),
-    "openai": ("OpenAI", "openai_compatible", "https://api.openai.com/v1", "OPENAI_API_KEY"),
-    "anthropic": ("Anthropic", "anthropic", "", "ANTHROPIC_API_KEY"),
-    "extractive": ("No model: quote the best passages (offline baseline)", "extractive", "", ""),
-}
 
 env = Environment(loader=PackageLoader("abe", "templates"), autoescape=select_autoescape(["html"]))
 
@@ -126,7 +120,10 @@ def create_app(workspace: str | Path) -> Starlette:
             agent_dir = agent_dir_for(slug)
         except FileNotFoundError:
             return render("error.html", message=f"No agent named {slug}.", status=404)
-        return render("agent.html", **await run_in_threadpool(_agent_context, agent_dir))
+        context = await run_in_threadpool(_agent_context, agent_dir)
+        if request.query_params.get("saved"):
+            context["saved"] = last_changes.pop(slug, None) or True
+        return render("agent.html", **context)
 
     async def ask(request: Request) -> Response:
         slug = request.path_params["slug"]
@@ -171,6 +168,64 @@ def create_app(workspace: str | Path) -> Starlette:
         archive = zip_agent(agent_dir)
         return FileResponse(archive, filename=archive.name, media_type="application/zip")
 
+    last_changes: dict[str, object] = {}
+
+    async def edit_form(request: Request) -> Response:
+        slug = request.path_params["slug"]
+        try:
+            agent_dir = agent_dir_for(slug)
+        except FileNotFoundError:
+            return render("error.html", message=f"No agent named {slug}.", status=404)
+        return render("edit.html", **await run_in_threadpool(_edit_context, agent_dir))
+
+    async def edit_save(request: Request) -> Response:
+        slug = request.path_params["slug"]
+        try:
+            agent_dir = agent_dir_for(slug)
+        except FileNotFoundError:
+            return render("error.html", message=f"No agent named {slug}.", status=404)
+        data = await request.form(max_files=MAX_FILES, max_fields=200)
+        try:
+            old = AgentSpec.load(agent_dir / "agent.yaml")
+            spec = spec_from_edit_form(data, old)
+            with tempfile.TemporaryDirectory() as tmp:
+                added: list[Path] = []
+                for upload in data.getlist("documents"):
+                    if not getattr(upload, "filename", None):
+                        continue
+                    name = safe_filename(upload.filename)
+                    if Path(name).suffix.lower() not in SUPPORTED_SUFFIXES:
+                        raise ValueError(f"{upload.filename}: unsupported file type.")
+                    content = await upload.read()
+                    if len(content) > MAX_FILE_BYTES:
+                        raise ValueError(f"{upload.filename} is larger than 25 MB.")
+                    target = Path(tmp) / name
+                    target.write_bytes(content)
+                    added.append(target)
+                result = await run_in_threadpool(
+                    update_agent,
+                    agent_dir,
+                    spec,
+                    add_docs=added,
+                    remove_docs=[str(v) for v in data.getlist("remove_doc")],
+                    testset_yaml=str(data.get("testset", "")) if data.get("testset") is not None else None,
+                )
+        except ValueError as exc:
+            context = await run_in_threadpool(_edit_context, agent_dir)
+            context["error"] = str(exc)
+            return render("edit.html", status=400, **context)
+        finally:
+            await data.close()
+
+        provider = spec.provider
+        if is_ollama(provider) and provider.model:
+            base = ollama.host_from_endpoint(provider.endpoint)
+            installed = await run_in_threadpool(ollama.list_models, base)
+            if installed is not None and not ollama.is_installed(provider.model, installed):
+                ollama.start_pull(provider.model, base)
+        last_changes[slug] = result
+        return RedirectResponse(f"/agents/{slug}?saved=1", status_code=303)
+
     async def pull(request: Request) -> Response:
         slug = request.path_params["slug"]
         try:
@@ -191,6 +246,8 @@ def create_app(workspace: str | Path) -> Starlette:
             Route("/agents/{slug}/eval", evaluate, methods=["POST"]),
             Route("/agents/{slug}/download", download),
             Route("/agents/{slug}/pull", pull, methods=["POST"]),
+            Route("/agents/{slug}/edit", edit_form),
+            Route("/agents/{slug}/edit", edit_save, methods=["POST"]),
         ]
     )
 
@@ -214,6 +271,78 @@ def _agent_context(agent_dir: Path) -> dict:
     }
 
 
+def _edit_context(agent_dir: Path) -> dict:
+    spec = AgentSpec.load(agent_dir / "agent.yaml")
+    testset = agent_dir / "evals" / "testset.yaml"
+    docs = sorted(p.name for p in (agent_dir / "docs").iterdir() if p.is_file())
+    return {
+        "spec": spec,
+        "docs": docs,
+        "testset": testset.read_text(encoding="utf-8") if testset.exists() else "threshold: 0.8\ncases: []\n",
+        "providers": PROVIDER_CHOICES,
+        "ollama_models": ollama.list_models(),
+        "ollama_host": ollama.host(),
+        "suffixes": ", ".join(sorted(SUPPORTED_SUFFIXES)),
+        "current": {
+            "choice": choice_for(spec.provider),
+            "model": spec.provider.model,
+            "endpoint": spec.provider.endpoint,
+            "api_key_env": spec.provider.api_key_env,
+        },
+    }
+
+
+def spec_from_edit_form(data, old: AgentSpec) -> AgentSpec:
+    def text(key: str, default: str = "") -> str:
+        value = data.get(key)
+        return default if value is None else str(value).strip()
+
+    def number(key: str, default: float, kind=float):
+        raw = text(key)
+        if not raw:
+            return default
+        try:
+            return kind(raw)
+        except ValueError as exc:
+            raise ValueError(f"{key.replace('_', ' ').capitalize()} must be a number.") from exc
+
+    name = text("name", old.name)
+    if not name:
+        raise ValueError("Give the agent a name.")
+    provider = provider_from_form(data).model_copy(update={
+        "max_tokens": number("max_tokens", old.provider.max_tokens, int),
+        "temperature": number("temperature", old.provider.temperature),
+        "api_version": old.provider.api_version,
+    })
+    retrieval = old.retrieval.model_copy(update={
+        "top_k": number("top_k", old.retrieval.top_k, int),
+        "min_score": number("min_score", old.retrieval.min_score),
+        "chunk_size": number("chunk_size", old.retrieval.chunk_size, int),
+        "chunk_overlap": number("chunk_overlap", old.retrieval.chunk_overlap, int),
+    })
+    if retrieval.top_k < 1 or retrieval.chunk_size < 100 or retrieval.chunk_overlap < 0:
+        raise ValueError("Passages per question must be at least 1, and chunk size at least 100 characters.")
+    updated = old.model_copy(update={
+        "name": name,
+        "description": text("description"),
+        "problem": text("problem"),
+        "goal": text("goal"),
+        "audience": text("audience"),
+        "out_of_scope": [line.strip() for line in text("out_of_scope").splitlines() if line.strip()],
+        "tone": text("tone") or AgentSpec.model_fields["tone"].default,
+        "require_citations": bool(data.get("require_citations")),
+        "human_review": bool(data.get("human_review")),
+        "style": style_from_form(data),
+        "provider": provider,
+        "retrieval": retrieval,
+    })
+    effort = effort_from_form(data, old.effort)
+    if effort != old.effort:
+        # A new level resets passages and answer length to its preset; otherwise keep the fine-tuned values.
+        updated = updated.with_effort(effort)
+    return updated
+
+
 def error_hints(message: str) -> list[str]:
     """Plain-language suggestions for the provider errors people hit most often."""
     text = message.lower()
@@ -223,8 +352,8 @@ def error_hints(message: str) -> list[str]:
             "The model didn't fit in your graphics card's memory (VRAM). A model fits when its download size plus "
             "about 2 GB is no more than your VRAM: on an 8 GB card, gemma4:e4b-it-qat or llama3.1:8b; a 26B model "
             "needs about 20 GB. See docs/choosing-a-local-model.md.",
-            "Pick a smaller model or a smaller tag (for example 4b or 8b instead of 26b) and change 'model' in "
-            "agent.yaml.",
+            "Pick a smaller model or a smaller tag (for example 4b or 8b instead of 26b) with Edit agent, or "
+            "'abe set-model'.",
             "Free VRAM: run 'ollama ps' to see what's loaded, 'ollama stop <model>' to unload it, and close games "
             "or other GPU-heavy programs.",
         ]
@@ -238,11 +367,44 @@ def error_hints(message: str) -> list[str]:
     return hints
 
 
+def style_from_form(data) -> AnswerStyle:
+    return AnswerStyle(**{field: bool(data.get(f"style_{field}")) for field in AnswerStyle.model_fields})
+
+
+def effort_from_form(data, default: str = "standard") -> str:
+    effort = str(data.get("effort") or default)
+    if effort not in EFFORT_PRESETS:
+        raise ValueError(f"Unknown effort level: {effort}")
+    return effort
+
+
 def is_ollama(provider: ProviderConfig) -> bool:
-    if provider.kind != "openai_compatible":
-        return False
-    base = ollama.host_from_endpoint(provider.endpoint)
-    return base == ollama.host() or ":11434" in base
+    return choice_for(provider) == "ollama"
+
+
+def provider_from_form(data) -> ProviderConfig:
+    """Provider settings from the model fields of the build or edit form.
+
+    When editing, an endpoint or key variable left over from the previous provider is
+    replaced by the new provider's default, so switching from Azure to Ollama doesn't
+    keep the Azure address.
+    """
+    def text(key: str) -> str:
+        return str(data.get(key, "") or "").strip()
+
+    choice = text("provider") or "azure_openai"
+    endpoint, key_env = text("endpoint"), text("api_key_env")
+    if text("original_provider") and choice != text("original_provider"):
+        if endpoint == text("original_endpoint"):
+            endpoint = ""
+        if key_env == text("original_api_key_env"):
+            key_env = ""
+    if choice == "ollama":
+        endpoint = ""
+    try:
+        return provider_from_choice(choice, text("model"), endpoint, key_env)
+    except ProviderError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _ollama_context(provider: ProviderConfig) -> dict | None:
@@ -275,19 +437,7 @@ def blueprint_from_form(data) -> Blueprint:
     if not name:
         raise ValueError("Give the agent a name.")
 
-    choice = text("provider", "azure_openai")
-    if choice not in PROVIDER_CHOICES:
-        raise ValueError(f"Unknown provider choice: {choice}")
-    _label, kind, default_endpoint, default_key_env = PROVIDER_CHOICES[choice]
-    if choice == "ollama":
-        default_endpoint = ollama.openai_endpoint()
-    provider = ProviderConfig(
-        kind=kind,
-        model=text("model"),
-        endpoint=text("endpoint") or default_endpoint,
-        api_key_env=text("api_key_env") or default_key_env,
-        extra_headers=dict(OPENROUTER_HEADERS) if choice == "openrouter" else {},
-    )
+    provider = provider_from_form(data)
 
     spec = AgentSpec(
         name=name,
@@ -300,8 +450,9 @@ def blueprint_from_form(data) -> Blueprint:
         tone=text("tone") or AgentSpec.model_fields["tone"].default,
         require_citations=bool(data.get("require_citations")),
         human_review=bool(data.get("human_review")),
+        style=style_from_form(data),
         provider=provider,
-    )
+    ).with_effort(effort_from_form(data))
 
     def score(key: str) -> int | None:
         raw = text(key)

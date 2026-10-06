@@ -1,9 +1,9 @@
 # ai-abe — Agent Builder Engine
 
 ABE builds a document-grounded AI agent from a short intake form and a folder of documents. You describe the
-problem, upload PDF, Word or text files, and write a few questions you already know the answers to. ABE produces an agent package with a retrieval index, a generated system prompt,
-a starter test set, a cost model and an MCP server entry, then lets you ask it questions and evaluate it in
-the browser.
+problem, upload PDF, Word or text files, and write a few questions you already know the answers to. ABE produces
+an agent package with a retrieval index, a generated system prompt, a starter test set, a cost model and an MCP
+server entry, then lets you ask it questions and evaluate it in the browser.
 
 It is meant to be cloned and adapted. The code is small, has few dependencies, and each part can be replaced
 without touching the others.
@@ -14,7 +14,7 @@ without touching the others.
 |---|---|
 | Intake form | Walks through the problem, documents, rules, model choice, test questions and running cost, with an optional build/no-build screen. |
 | Retrieval | Reads PDF, DOCX, TXT and Markdown; chunks on paragraph and sentence boundaries; indexes with BM25. Works offline. |
-| Agent | Answers only from retrieved passages, cites them, and declines when nothing relevant is found. |
+| Agent | Answers only from retrieved passages, cites them, and declines when nothing relevant is found. Effort level and answer-style options adjust the system prompt. |
 | Providers | Azure OpenAI (default), OpenRouter, OpenAI, any OpenAI-compatible server including Ollama for local models, Anthropic, and a no-model extractive baseline. |
 | MCP server | Exposes `search_knowledge`, `ask`, `list_sources` and the agent's rules to Claude Desktop, VS Code or any MCP client. A retrieval-only mode lets the client's own model answer on an existing subscription. |
 | Evaluation | Runs a YAML test set, scores answers and retrieval separately, writes Markdown and JSON reports, and fails CI below a threshold. |
@@ -37,6 +37,10 @@ abe serve
 ```
 
 Open http://127.0.0.1:8765, fill in the form, upload documents and select **Build agent**.
+
+Activate the virtual environment in every new terminal before running `abe`; otherwise PowerShell reports that
+`abe` isn't recognised. If PowerShell blocks the activation script, run `Set-ExecutionPolicy -Scope Process Bypass`
+first, which applies to that window only.
 
 To try it without a model, choose **No model: quote the best passages** as the provider. To use a local
 model, install and start [Ollama](https://ollama.com) and choose **Local model (Ollama)**. The form lists the
@@ -93,6 +97,7 @@ cost; run the same evaluation with a configured provider to see by how much.
 abe serve [--host 127.0.0.1] [--port 8765]
 abe build BLUEPRINT --docs DIR
 abe reindex AGENT
+abe set-model AGENT MODEL [--provider ollama|openrouter|openai|azure_openai|anthropic|custom|extractive]
 abe ask AGENT "question" [--provider KIND]
 abe eval AGENT [--provider KIND] [--threshold 0.8] [--min-retrieval 1.0] [--json]
 abe mcp AGENT [--transport stdio|streamable-http] [--retrieval-only]
@@ -116,6 +121,31 @@ agents/<slug>/
   mcp.json            MCP client entry
   README.md           how to run this agent
 ```
+
+## Changing an agent
+
+Open the agent's page and select **Edit agent**. From there you can:
+
+- change the model or switch provider, for example from Azure OpenAI to a local Ollama model
+- edit the description, audience, out-of-scope list, tone and citation rules
+- set the effort level (Quick, Standard or Thorough) and answer-style options such as numbered steps, commands
+  shown as code, version-aware answers, flagging conflicting passages, or allowing labelled general knowledge
+- add or remove documents
+- adjust how many passages are sent per question, the minimum match score and the passage size
+- edit the test set
+
+The agent keeps its folder name, so MCP client entries and links keep working. Changing documents or passage
+size rebuilds the search index; nothing else does. If you pick an Ollama model that isn't installed, ABE starts
+downloading it. Run the test set after a change to see what it did.
+
+To change only the model from the command line:
+
+```
+abe set-model powershell-guide gemma4:e4b-it-qat --provider ollama
+```
+
+Leave out `--provider` to keep the current provider and change only the model name. Every setting also lives in the
+agent's `agent.yaml`, which you can edit by hand; run `abe reindex AGENT` afterwards if you changed passage size.
 
 ## Connecting an MCP client
 
@@ -144,6 +174,18 @@ Start with the questions users actually ask, and add a case every time you find 
 cite; `expect_decline: true` marks questions the agent must refuse. The report scores retrieval and answers
 separately, so a failure points to the right fix: documents and chunking when retrieval misses, prompt and
 model when retrieval hits and the answer is still wrong.
+
+## Running it safely
+
+ABE is a single-user tool for your own machine.
+
+- `abe serve` listens on `127.0.0.1` only and has no login. Don't run it with `--host 0.0.0.0` on a network you
+  don't control: anyone who can reach the port can upload documents and read every agent's answers.
+- Uploaded documents are copied into `agents/<slug>/docs/`. The `agents/` folder is in `.gitignore` so they aren't
+  committed by accident.
+- API keys are read from environment variables named in each agent's `agent.yaml`. They are never written to disk.
+- With a cloud provider, the passages retrieved for each question are sent to that provider. Use Ollama when the
+  documents must stay on your machine.
 
 ## Design
 

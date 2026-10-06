@@ -46,6 +46,55 @@ class RetrievalConfig(BaseModel):
     )
 
 
+Effort = Literal["quick", "standard", "thorough"]
+
+# What each effort level sets. Passages and answer length are applied to the agent's settings when the
+# level is chosen, and can still be fine-tuned afterwards; the instruction goes into the system prompt.
+EFFORT_PRESETS: dict[str, dict] = {
+    "quick": {
+        "top_k": 3,
+        "max_tokens": 300,
+        "instruction": "Answer in one to three sentences.",
+    },
+    "standard": {"top_k": 4, "max_tokens": 800, "instruction": ""},
+    "thorough": {
+        "top_k": 8,
+        "max_tokens": 1500,
+        "instruction": (
+            "Check every passage before answering. Cover each part of the question, and state anything the "
+            "passages leave unanswered."
+        ),
+    },
+}
+
+
+class AnswerStyle(BaseModel):
+    """Optional instructions added to the system prompt."""
+
+    steps: bool = Field(False, description="Give procedures as numbered steps.")
+    code_blocks: bool = Field(False, description="Show commands, paths and settings as code, exactly as written.")
+    version_aware: bool = Field(False, description="Say which version, product or region each part applies to.")
+    flag_conflicts: bool = Field(False, description="Point out passages that disagree instead of picking one.")
+    general_knowledge: bool = Field(False, description="Allow general knowledge, labelled as not from the documents.")
+
+    def instructions(self) -> list[str]:
+        lines = []
+        if self.steps:
+            lines.append("When the answer is a procedure, give numbered steps.")
+        if self.code_blocks:
+            lines.append(
+                "Put commands, file paths and settings in code blocks, exactly as written in the passage."
+            )
+        if self.version_aware:
+            lines.append(
+                "If the passages describe different versions, products or regions, say which one each part of "
+                "the answer applies to."
+            )
+        if self.flag_conflicts:
+            lines.append("If two passages disagree, say so and cite both rather than picking one.")
+        return lines
+
+
 class AgentSpec(BaseModel):
     name: str
     slug: str = ""
@@ -57,6 +106,8 @@ class AgentSpec(BaseModel):
     tone: str = "Plain and direct. Short answers first, detail after."
     require_citations: bool = True
     human_review: bool = False
+    effort: Effort = "standard"
+    style: AnswerStyle = Field(default_factory=AnswerStyle)
     provider: ProviderConfig = Field(default_factory=ProviderConfig)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
 
@@ -76,11 +127,18 @@ class AgentSpec(BaseModel):
             lines.append(f"A good outcome looks like: {self.goal}")
         lines.append("")
         lines.append("Rules:")
-        lines.append("- Answer only from the numbered context passages supplied with each question.")
-        lines.append(
-            "- If the context does not contain the answer, say so plainly and suggest who or what "
-            "the user should check instead. Do not guess."
-        )
+        if self.style.general_knowledge:
+            lines.append("- Base your answer on the numbered context passages supplied with each question.")
+            lines.append(
+                "- You may add general knowledge where the passages are incomplete. Mark every such part "
+                "'(Not from the documents)' so the reader can tell it apart."
+            )
+        else:
+            lines.append("- Answer only from the numbered context passages supplied with each question.")
+            lines.append(
+                "- If the context does not contain the answer, say so plainly and suggest who or what "
+                "the user should check instead. Do not guess."
+            )
         if self.require_citations:
             lines.append("- Cite the passages you used with their numbers in square brackets, e.g. [1].")
         for item in self.out_of_scope:
@@ -89,8 +147,22 @@ class AgentSpec(BaseModel):
             lines.append(
                 "- End every answer with: 'Review required before acting on this answer.'"
             )
+        for instruction in self.style.instructions():
+            lines.append(f"- {instruction}")
+        effort = EFFORT_PRESETS[self.effort]["instruction"]
+        if effort:
+            lines.append(f"- {effort}")
         lines.append(f"- Style: {self.tone}")
         return "\n".join(lines)
+
+    def with_effort(self, effort: str) -> AgentSpec:
+        """A copy at the given effort level, with passages and answer length set to its preset."""
+        preset = EFFORT_PRESETS[effort]
+        return self.model_copy(update={
+            "effort": effort,
+            "retrieval": self.retrieval.model_copy(update={"top_k": preset["top_k"]}),
+            "provider": self.provider.model_copy(update={"max_tokens": preset["max_tokens"]}),
+        })
 
     @classmethod
     def load(cls, path: str | Path) -> AgentSpec:

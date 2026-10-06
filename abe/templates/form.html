@@ -63,78 +63,13 @@ a retrieval index, an MCP server entry and a starter test set.</p>
   <input type="text" name="tone" placeholder="Plain and direct. Short answers first, detail after.">
   <label class="check"><input type="checkbox" name="require_citations" checked> Cite sources in every answer</label>
   <label class="check"><input type="checkbox" name="human_review"> Flag every answer for human review before action</label>
+  {% set spec = none %}
+  {% include "_answers.html" %}
 </fieldset>
 
 <fieldset>
   <legend><span class="step">5</span>Model</legend>
-  <div class="row">
-    <div>
-      <label>Provider</label>
-      <select name="provider" id="provider">
-        {% for key, p in providers.items() %}<option value="{{ key }}">{{ p[0] }}</option>{% endfor %}
-      </select>
-    </div>
-    <div>
-      <label>Model or deployment <span class="hint">e.g. gpt-4o-mini, or for OpenRouter openai/gpt-5.2</span></label>
-      <input type="text" name="model" id="model" autocomplete="off">
-      {% if ollama_models %}
-      <datalist id="ollama-models">{% for m in ollama_models %}<option value="{{ m }}">{% endfor %}</datalist>
-      {% endif %}
-    </div>
-  </div>
-
-  <div id="ollama-panel" class="card" style="margin:12px 0 0">
-    <h2>Models installed in Ollama</h2>
-    {% if ollama_models is none %}
-      <p>Ollama isn't running at <code>{{ ollama_host }}</code>, or isn't installed. Install it from
-      <a href="https://ollama.com">ollama.com</a>, start it, and reload this page to see your models.</p>
-    {% elif not ollama_models %}
-      <p>Ollama is running at <code>{{ ollama_host }}</code> but has no models installed yet.</p>
-    {% else %}
-      <p>Pick one, or click the model box to choose from the list:</p>
-      <p>{% for m in ollama_models %}<button type="button" class="button secondary pick-model" data-model="{{ m }}"
-         style="margin:0 6px 6px 0;padding:4px 10px">{{ m }}</button>{% endfor %}</p>
-    {% endif %}
-    <p class="hint">Don't see the model you want? Install it yourself with <code>ollama pull &lt;model&gt;</code>
-    (names are listed at <a href="https://ollama.com/library">ollama.com/library</a>) and reload this page. Or type
-    its name in the model box: when you build the agent, ABE will ask Ollama to download it and show the progress on
-    the agent's page. Models are several gigabytes, so this can take a while. If the download fails, run
-    <code>ollama pull &lt;model&gt;</code> in a terminal instead.</p>
-  </div>
-
-  <div class="row" id="remote-fields">
-    <div>
-      <label>Endpoint <span class="hint">Azure resource URL; blank for defaults</span></label>
-      <input type="text" name="endpoint" placeholder="https://your-resource.openai.azure.com">
-    </div>
-    <div>
-      <label>API key environment variable <span class="hint">Keys are never stored</span></label>
-      <input type="text" name="api_key_env" placeholder="AZURE_OPENAI_API_KEY">
-    </div>
-  </div>
-  <p class="hint">OpenRouter: buy credits at openrouter.ai, create a key, set it as OPENROUTER_API_KEY, and enter the
-  model ID exactly as OpenRouter lists it (provider/model). The extractive option needs no model and gives a
-  baseline to compare against.</p>
-  <script>
-    (function () {
-      var provider = document.getElementById("provider");
-      var model = document.getElementById("model");
-      var panel = document.getElementById("ollama-panel");
-      var remote = document.getElementById("remote-fields");
-      function update() {
-        var local = provider.value === "ollama";
-        panel.style.display = local ? "" : "none";
-        remote.style.display = local ? "none" : "";
-        if (local && document.getElementById("ollama-models")) { model.setAttribute("list", "ollama-models"); }
-        else { model.removeAttribute("list"); }
-      }
-      provider.addEventListener("change", update);
-      document.querySelectorAll(".pick-model").forEach(function (b) {
-        b.addEventListener("click", function () { model.value = b.dataset.model; });
-      });
-      update();
-    })();
-  </script>
+  {% include "_model.html" %}
 </fieldset>
 
 <fieldset>

@@ -1,0 +1,84 @@
+{# Model fields shared by the build form and the edit form.
+   Expects: providers, ollama_models, ollama_host, and optionally `current`
+   (choice, model, endpoint, api_key_env) when editing an existing agent. #}
+{% set current = current or {} %}
+<input type="hidden" name="original_provider" value="{{ current.choice or '' }}">
+<input type="hidden" name="original_endpoint" value="{{ current.endpoint or '' }}">
+<input type="hidden" name="original_api_key_env" value="{{ current.api_key_env or '' }}">
+<div class="row">
+  <div>
+    <label>Provider</label>
+    <select name="provider" id="provider">
+      {% for key, p in providers.items() %}<option value="{{ key }}"{% if current.choice == key %} selected{% endif %}>{{ p[0] }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Model or deployment <span class="hint">e.g. gpt-4o-mini, or for OpenRouter openai/gpt-5.2</span></label>
+    <input type="text" name="model" id="model" autocomplete="off" value="{{ current.model or '' }}">
+    {% if ollama_models %}
+    <datalist id="ollama-models">{% for m in ollama_models %}<option value="{{ m }}">{% endfor %}</datalist>
+    {% endif %}
+  </div>
+</div>
+
+<div id="ollama-panel" class="card" style="margin:12px 0 0">
+  <h2>Models installed in Ollama</h2>
+  {% if ollama_models is none %}
+    <p>Ollama isn't running at <code>{{ ollama_host }}</code>, or isn't installed. Install it from
+    <a href="https://ollama.com">ollama.com</a>, start it, and reload this page to see your models.</p>
+  {% elif not ollama_models %}
+    <p>Ollama is running at <code>{{ ollama_host }}</code> but has no models installed yet.</p>
+  {% else %}
+    <p>Pick one, or click the model box to choose from the list:</p>
+    <p>{% for m in ollama_models %}<button type="button" class="button secondary pick-model" data-model="{{ m }}"
+       style="margin:0 6px 6px 0;padding:4px 10px">{{ m }}</button>{% endfor %}</p>
+  {% endif %}
+  <p class="hint">Don't see the model you want? Install it yourself with <code>ollama pull &lt;model&gt;</code>
+  (names are listed at <a href="https://ollama.com/library">ollama.com/library</a>) and reload this page. Or type
+  its name in the model box: when you save, ABE will ask Ollama to download it and show the progress on the agent's
+  page. Models are several gigabytes, so this can take a while. If the download fails, run
+  <code>ollama pull &lt;model&gt;</code> in a terminal instead. To pick a size that fits your graphics card, see
+  <code>docs/choosing-a-local-model.md</code>.</p>
+</div>
+
+<div class="row" id="remote-fields">
+  <div>
+    <label>Endpoint <span class="hint" id="endpoint-hint">Azure resource URL; blank for defaults</span></label>
+    <input type="text" name="endpoint" id="endpoint" value="{{ current.endpoint or '' }}"
+           placeholder="https://your-resource.openai.azure.com">
+  </div>
+  <div>
+    <label>API key environment variable <span class="hint">Keys are never stored</span></label>
+    <input type="text" name="api_key_env" value="{{ current.api_key_env or '' }}" placeholder="AZURE_OPENAI_API_KEY">
+  </div>
+</div>
+<p class="hint">OpenRouter: buy credits at openrouter.ai, create a key, set it as OPENROUTER_API_KEY, and enter the
+model ID exactly as OpenRouter lists it (provider/model). Other OpenAI-compatible server: enter its address, for
+example <code>http://localhost:1234/v1</code> for LM Studio. The extractive option needs no model and gives a
+baseline to compare against.</p>
+<script>
+  (function () {
+    var provider = document.getElementById("provider");
+    var model = document.getElementById("model");
+    var panel = document.getElementById("ollama-panel");
+    var remote = document.getElementById("remote-fields");
+    var hint = document.getElementById("endpoint-hint");
+    var hints = {
+      azure_openai: "Azure resource URL",
+      custom: "Required: the server's address, ending in /v1",
+    };
+    function update() {
+      var local = provider.value === "ollama";
+      panel.style.display = local ? "" : "none";
+      remote.style.display = local ? "none" : "";
+      hint.textContent = hints[provider.value] || "Leave blank for the default";
+      if (local && document.getElementById("ollama-models")) { model.setAttribute("list", "ollama-models"); }
+      else { model.removeAttribute("list"); }
+    }
+    provider.addEventListener("change", update);
+    document.querySelectorAll(".pick-model").forEach(function (b) {
+      b.addEventListener("click", function () { model.value = b.dataset.model; });
+    });
+    update();
+  })();
+</script>

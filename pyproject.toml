@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,9 @@ description = "Agent Builder Engine: turn a short intake form and a folder of do
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Christian Lesemann" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["rag", "mcp", "agents", "ollama", "llm"]
 dependencies = [
     "pydantic>=2",
     "pyyaml>=6",
@@ -21,6 +23,9 @@ dependencies = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
 ]
+
+[project.urls]
+Homepage = "https://github.com/wolfmann1/ai-abe"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]

@@ -3,6 +3,7 @@
     abe serve                        run the intake form at http://127.0.0.1:8765
     abe build blueprint.yaml --docs DIR
     abe reindex AGENT
+    abe set-model AGENT MODEL [--provider ollama|openrouter|azure_openai|...]
     abe ask AGENT "question"
     abe eval AGENT [--provider extractive] [--testset PATH]
     abe mcp AGENT [--transport stdio|streamable-http] [--retrieval-only]
@@ -58,6 +59,33 @@ def cmd_reindex(args) -> int:
 
     index = build_index(resolve_agent(args.agent, args.workspace))
     print(f"Indexed {len(index.chunks)} passages from {len(index.sources())} documents")
+    return 0
+
+
+def cmd_set_model(args) -> int:
+    from .editor import update_agent
+    from .providers import ProviderError, provider_from_choice
+    from .spec import AgentSpec
+
+    agent_dir = resolve_agent(args.agent, args.workspace)
+    spec = AgentSpec.load(agent_dir / "agent.yaml")
+    if args.provider:
+        try:
+            provider = provider_from_choice(args.provider, args.model, args.endpoint or "", args.key_env or "")
+        except ProviderError as exc:
+            raise SystemExit(str(exc)) from None
+        provider = provider.model_copy(update={
+            "max_tokens": spec.provider.max_tokens, "temperature": spec.provider.temperature,
+        })
+    else:
+        updates = {"model": args.model}
+        if args.endpoint:
+            updates["endpoint"] = args.endpoint
+        if args.key_env:
+            updates["api_key_env"] = args.key_env
+        provider = spec.provider.model_copy(update=updates)
+    result = update_agent(agent_dir, spec.model_copy(update={"provider": provider}))
+    print("; ".join(result.changes))
     return 0
 
 
@@ -143,6 +171,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("reindex", help="rebuild the retrieval index after changing docs/")
     p.add_argument("agent")
     p.set_defaults(func=cmd_reindex)
+
+    p = sub.add_parser("set-model", help="change the model an existing agent uses")
+    p.add_argument("agent")
+    p.add_argument("model", help="model or deployment name, e.g. gemma4:e4b-it-qat")
+    p.add_argument("--provider", help="switch provider too: ollama, openrouter, openai, azure_openai, anthropic, "
+                                      "custom or extractive")
+    p.add_argument("--endpoint", help="server address, for azure_openai or custom")
+    p.add_argument("--key-env", help="name of the environment variable holding the API key")
+    p.set_defaults(func=cmd_set_model)
 
     p = sub.add_parser("ask", help="ask an agent one question")
     p.add_argument("agent")

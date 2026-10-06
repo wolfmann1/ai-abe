@@ -21,7 +21,7 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| `spec.py` | `AgentSpec`: name, purpose, rules, provider and retrieval settings. Generates the system prompt. |
+| `spec.py` | `AgentSpec`: name, purpose, rules, effort level, answer style, provider and retrieval settings. Generates the system prompt. |
 | `ingest.py` | Reads PDF, DOCX, TXT and Markdown; splits text into overlapping chunks on paragraph and sentence boundaries. |
 | `index.py` | BM25 keyword index, stored as JSON. |
 | `providers.py` | Azure OpenAI, OpenAI-compatible (OpenRouter, OpenAI, Ollama, LM Studio, vLLM), Anthropic, and the no-model extractive baseline. Plain HTTPS via `requests`. |
@@ -30,10 +30,11 @@ flowchart LR
 | `intake.py` | Optional six-criterion screen and a build recommendation; unscored criteria are ignored. |
 | `cost.py` | Monthly token volume and cost from usage assumptions and the rates you enter. |
 | `builder.py` | Writes the agent package from a blueprint and documents. |
+| `editor.py` | Updates an existing package in place: settings, documents and test set, rebuilding the index only when documents or passage size change. |
 | `mcp_server.py` | Exposes `search_knowledge`, `ask`, `list_sources` and the `agent_rules` prompt to MCP clients; `--retrieval-only` leaves out `ask`. |
 | `ollama.py` | Finds the local Ollama server, lists installed models, downloads missing ones in the background. |
-| `web.py` | Starlette app: intake form, workbench, evaluation, download, Ollama model status. |
-| `cli.py` | `serve`, `build`, `reindex`, `ask`, `eval`, `mcp`. |
+| `web.py` | Starlette app: intake form, edit form, workbench, evaluation, download, Ollama model status. |
+| `cli.py` | `serve`, `build`, `reindex`, `set-model`, `ask`, `eval`, `mcp`. |
 
 ## Design decisions
 

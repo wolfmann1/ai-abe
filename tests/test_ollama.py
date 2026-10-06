@@ -72,6 +72,7 @@ class OllamaTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
 
     def setUp(self):
         FakeOllama.installed = ["llama3.1:latest", "qwen2.5:7b"]

@@ -20,6 +20,11 @@ The download size is listed on each model's **Tags** page on [ollama.com/library
 The extra 2 GB holds the text the model is working on (your question and the document passages ABE sends with
 it) and leaves room for Windows to draw the screen.
 
+Treat the rule as a safe starting point. Some models use less VRAM than their download size: the download can
+include parts that aren't loaded for text questions. Gemma 4's `e2b` and `e4b` models are the clearest case:
+`gemma4:e4b-it-qat` is a 6.1 GB download but occupies about 3.1 GB of VRAM. Once a model is running, step 5
+shows the real figure.
+
 ## 3. Pick a model
 
 Starting points by card size, using Google's Gemma 4 sizes from
@@ -75,6 +80,13 @@ ollama ps
 
 The **PROCESSOR** column should read **100% GPU**. A split such as `40%/60% CPU/GPU` means part of the model
 didn't fit and answers will be several times slower. Pick a smaller model or free some VRAM.
+
+The **SIZE** column is how much memory the model is using, including room for its working text. If it's well
+under your VRAM, you can try the next size up and check `ollama ps` again.
+
+The **CONTEXT** column is how much text, in tokens, the model has room for. ABE sends about 1,500 tokens per
+question, so a larger context mostly costs memory. Ollama picks this number itself; to set it lower and free VRAM
+for a bigger model, set `OLLAMA_CONTEXT_LENGTH` (for example to `4096`) before starting Ollama, then restart it.
 
 ## When it doesn't fit
 

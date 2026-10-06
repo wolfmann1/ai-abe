@@ -3,7 +3,17 @@
 {% block content %}
 <h1>{{ spec.name }}</h1>
 <p class="lead">{{ spec.description }}</p>
-<p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}</p>
+<p class="hint">Provider: <code>{{ spec.provider.kind }}</code>{% if spec.provider.model %} · model <code>{{ spec.provider.model }}</code>{% endif %}
+  · <a href="/agents/{{ spec.slug }}/edit">Edit agent</a></p>
+
+{% if saved %}
+<div class="card" style="border-color:var(--ok)">
+  <strong class="pass">Saved.</strong>
+  {% if saved.changes %}{{ saved.changes | join('; ') }}.{% endif %}
+  {% if saved.reindexed %}The search index was rebuilt.{% endif %}
+  Run the test set to see how the change affected answers.
+</div>
+{% endif %}
 
 {% if verdict %}
 <div class="card">
@@ -37,7 +47,7 @@
     <p><code>{{ ollama.model }}</code> isn't installed in Ollama yet.</p>
     <form method="post" action="/agents/{{ spec.slug }}/pull"><button type="submit">Download it now</button></form>
     <p class="hint">Or run <code>ollama pull {{ ollama.model }}</code> in a terminal and reload this page. If the name
-    is wrong, edit <code>model</code> in agent.yaml.</p>
+    is wrong, <a href="/agents/{{ spec.slug }}/edit">edit the agent</a> to change it.</p>
   {% endif %}
 </div>
 {% endif %}
@@ -96,6 +106,7 @@
   <h2>Package</h2>
   <ul>{% for f in files %}<li><code>{{ f }}</code></li>{% endfor %}</ul>
   <div class="actions"><a class="button" href="/agents/{{ spec.slug }}/download">Download zip</a>
+  <a class="button secondary" href="/agents/{{ spec.slug }}/edit">Edit agent</a>
   <a class="button secondary" href="/">Build another</a></div>
   <details style="margin-top:12px"><summary>System prompt</summary><pre>{{ system_prompt }}</pre></details>
   <details><summary>Cost model</summary><pre>{{ cost_md }}</pre></details>

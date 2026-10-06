@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ spec.name }} · ai-abe{% endblock %}
+{% block content %}
+<h1>Edit {{ spec.name }}</h1>
+<p class="lead">Change the model, the rules, the documents or the test set. The agent keeps its address
+(<code>{{ spec.slug }}</code>), so MCP clients and links keep working. After saving, run the test set to see what
+the change did.</p>
+
+{% if error %}<div class="card error"><strong>Not saved.</strong> {{ error }}</div>{% endif %}
+
+<form method="post" action="/agents/{{ spec.slug }}/edit" enctype="multipart/form-data">
+
+<fieldset>
+  <legend>Model</legend>
+  {% include "_model.html" %}
+  <details style="margin-top:12px"><summary>Advanced</summary>
+    <div class="row">
+      <div><label>Maximum answer length <span class="hint">tokens</span></label>
+        <input type="number" name="max_tokens" min="50" value="{{ spec.provider.max_tokens }}"></div>
+      <div><label>Temperature <span class="hint">0 = most consistent</span></label>
+        <input type="number" name="temperature" min="0" max="2" step="0.1" value="{{ spec.provider.temperature }}"></div>
+    </div>
+  </details>
+</fieldset>
+
+<fieldset>
+  <legend>About and rules</legend>
+  <label>Name <span class="hint">Changes the display name only; the address stays {{ spec.slug }}</span></label>
+  <input type="text" name="name" required maxlength="80" value="{{ spec.name }}">
+  <label>One-line description</label>
+  <input type="text" name="description" value="{{ spec.description }}">
+  <label>What was going wrong?</label>
+  <textarea name="problem">{{ spec.problem }}</textarea>
+  <label>What should be different once the agent exists?</label>
+  <textarea name="goal">{{ spec.goal }}</textarea>
+  <label>Who will ask it questions?</label>
+  <input type="text" name="audience" value="{{ spec.audience }}">
+  <label>Out of scope <span class="hint">One per line. The agent declines these.</span></label>
+  <textarea name="out_of_scope">{{ spec.out_of_scope | join('\n') }}</textarea>
+  <label>Tone</label>
+  <input type="text" name="tone" value="{{ spec.tone }}">
+  <label class="check"><input type="checkbox" name="require_citations"{% if spec.require_citations %} checked{% endif %}> Cite sources in every answer</label>
+  <label class="check"><input type="checkbox" name="human_review"{% if spec.human_review %} checked{% endif %}> Flag every answer for human review before action</label>
+</fieldset>
+
+<fieldset>
+  <legend>Effort and answer style</legend>
+  {% include "_answers.html" %}
+  <details style="margin-top:12px"><summary>Current system prompt</summary><pre>{{ spec.system_prompt() }}</pre></details>
+</fieldset>
+
+<fieldset>
+  <legend>Documents</legend>
+  <p class="hint">Tick a document to remove it. Changing documents rebuilds the search index when you save.</p>
+  <table>
+    {% for d in docs %}
+    <tr><td><code>{{ d }}</code></td>
+        <td style="width:110px"><label class="check" style="margin:0"><input type="checkbox" name="remove_doc" value="{{ d }}"> Remove</label></td></tr>
+    {% endfor %}
+  </table>
+  <label>Add documents <span class="hint">{{ suffixes }}, up to 25 MB each. A file with the same name replaces the old one.</span></label>
+  <input type="file" name="documents" multiple accept=".pdf,.docx,.txt,.md">
+</fieldset>
+
+<fieldset>
+  <legend>Search</legend>
+  <p class="hint">Defaults suit most documents. Change one setting at a time and run the test set after each.</p>
+  <div class="row">
+    <div><label>Passages per question <span class="hint">more = better coverage, more tokens</span></label>
+      <input type="number" name="top_k" min="1" max="20" value="{{ spec.retrieval.top_k }}"></div>
+    <div><label>Minimum match score <span class="hint">higher = declines more often</span></label>
+      <input type="number" name="min_score" min="0" step="0.1" value="{{ spec.retrieval.min_score }}"></div>
+  </div>
+  <div class="row">
+    <div><label>Passage size <span class="hint">characters; changing it rebuilds the index</span></label>
+      <input type="number" name="chunk_size" min="100" step="50" value="{{ spec.retrieval.chunk_size }}"></div>
+    <div><label>Passage overlap <span class="hint">characters</span></label>
+      <input type="number" name="chunk_overlap" min="0" step="25" value="{{ spec.retrieval.chunk_overlap }}"></div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Test set</legend>
+  <p class="hint">Each case has a <code>question</code>; add <code>expect_contains</code> (phrases a correct answer
+  must include), <code>expect_source</code> (the file it should cite) or <code>expect_decline: true</code>. It's
+  checked before saving.</p>
+  <textarea name="testset" style="min-height:260px;font-family:ui-monospace,Consolas,monospace;font-size:.88rem">{{ testset }}</textarea>
+</fieldset>
+
+<div class="actions">
+  <button type="submit">Save changes</button>
+  <a class="button secondary" href="/agents/{{ spec.slug }}">Cancel</a>
+</div>
+</form>
+{% endblock %}

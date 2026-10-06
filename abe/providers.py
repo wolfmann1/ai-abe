@@ -198,3 +198,55 @@ def _openai_completion(data: dict) -> Completion:
         raise ProviderError(f"Unexpected response shape: {str(data)[:300]}") from exc
     usage = data.get("usage") or {}
     return Completion(text, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+
+
+# Choices offered in the web form, mapped to provider settings:
+#   key -> (label, kind, default endpoint, default API key variable)
+PROVIDER_CHOICES = {
+    "azure_openai": ("Azure OpenAI", "azure_openai", "", "AZURE_OPENAI_API_KEY"),
+    "ollama": ("Local model (Ollama)", "openai_compatible", "", ""),
+    "openrouter": ("OpenRouter (prepaid credits, many models)", "openai_compatible", OPENROUTER_URL,
+                   "OPENROUTER_API_KEY"),
+    "openai": ("OpenAI", "openai_compatible", "https://api.openai.com/v1", "OPENAI_API_KEY"),
+    "anthropic": ("Anthropic", "anthropic", "", "ANTHROPIC_API_KEY"),
+    "custom": ("Other OpenAI-compatible server (LM Studio, Lemonade, vLLM)", "openai_compatible", "", ""),
+    "extractive": ("No model: quote the best passages (offline baseline)", "extractive", "", ""),
+}
+
+
+def provider_from_choice(choice: str, model: str = "", endpoint: str = "", api_key_env: str = "") -> ProviderConfig:
+    """Build provider settings from a form choice, filling in that choice's defaults."""
+    from . import ollama
+
+    if choice not in PROVIDER_CHOICES:
+        raise ProviderError(f"Unknown provider choice: {choice}. Choose from: {', '.join(PROVIDER_CHOICES)}")
+    _label, kind, default_endpoint, default_key_env = PROVIDER_CHOICES[choice]
+    if choice == "ollama":
+        default_endpoint = ollama.openai_endpoint()
+    endpoint = endpoint or default_endpoint
+    if choice == "custom" and not endpoint:
+        raise ProviderError("Enter the server's address for 'Other OpenAI-compatible server'.")
+    return ProviderConfig(
+        kind=kind,
+        model=model,
+        endpoint=endpoint,
+        api_key_env=api_key_env or default_key_env,
+        extra_headers=dict(OPENROUTER_HEADERS) if choice == "openrouter" else {},
+    )
+
+
+def choice_for(provider: ProviderConfig) -> str:
+    """The form choice that best describes existing provider settings."""
+    from . import ollama
+
+    if provider.kind != "openai_compatible":
+        return provider.kind
+    endpoint = provider.endpoint or ""
+    if "openrouter.ai" in endpoint:
+        return "openrouter"
+    if "api.openai.com" in endpoint:
+        return "openai"
+    base = ollama.host_from_endpoint(endpoint)
+    if base == ollama.host() or ":11434" in base:
+        return "ollama"
+    return "custom"
